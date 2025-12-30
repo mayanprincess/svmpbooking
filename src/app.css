@@ -1,0 +1,337 @@
+/**
+ * Global Styles
+ * Modern, elegant design with brand colors
+ */
+
+/* CSS Reset and Base Styles */
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+/* CSS Custom Properties */
+:root {
+	/* Brand Colors */
+	--color-primary: #183453;
+	--color-secondary: #c5a56f;
+	--color-tertiary: #d6a34b;
+
+	/* Neutral Colors */
+	--color-white: #ffffff;
+	--color-beige-light: #faf8f5;
+	--color-beige: #f5f2ed;
+	--color-gray-light: #e5e5e5;
+	--color-gray: #9ca3af;
+	--color-gray-dark: #4b5563;
+	--color-black: #111827;
+
+	/* Semantic Colors */
+	--color-success: #10b981;
+	--color-error: #ef4444;
+	--color-warning: #f59e0b;
+	--color-info: #3b82f6;
+
+	/* Typography */
+	--font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+		sans-serif;
+	--font-serif: Georgia, 'Times New Roman', serif;
+
+	/* Spacing */
+	--spacing-xs: 0.25rem;
+	--spacing-sm: 0.5rem;
+	--spacing-md: 1rem;
+	--spacing-lg: 1.5rem;
+	--spacing-xl: 2rem;
+	--spacing-2xl: 3rem;
+	--spacing-3xl: 4rem;
+
+	/* Border Radius */
+	--radius-sm: 0.25rem;
+	--radius-md: 0.5rem;
+	--radius-lg: 0.75rem;
+	--radius-xl: 1rem;
+
+	/* Shadows */
+	--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+	--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+	--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+	--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+
+	/* Transitions */
+	--transition-fast: 150ms ease-in-out;
+	--transition-base: 300ms ease-in-out;
+	--transition-slow: 500ms ease-in-out;
+}
+
+/* Base Styles */
+html {
+	font-size: 16px;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+body {
+	font-family: var(--font-sans);
+	color: var(--color-black);
+	background-color: var(--color-beige-light);
+	line-height: 1.6;
+	min-height: 100vh;
+}
+
+/* Typography */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+	font-family: var(--font-serif);
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--color-primary);
+	margin-bottom: var(--spacing-md);
+}
+
+h1 {
+	font-size: 2.5rem;
+	letter-spacing: -0.025em;
+}
+
+h2 {
+	font-size: 2rem;
+}
+
+h3 {
+	font-size: 1.5rem;
+}
+
+h4 {
+	font-size: 1.25rem;
+}
+
+p {
+	margin-bottom: var(--spacing-md);
+}
+
+a {
+	color: var(--color-secondary);
+	text-decoration: none;
+	transition: color var(--transition-fast);
+}
+
+a:hover {
+	color: var(--color-tertiary);
+}
+
+/* Buttons */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--spacing-sm);
+	padding: var(--spacing-md) var(--spacing-xl);
+	font-size: 1rem;
+	font-weight: 500;
+	line-height: 1;
+	text-align: center;
+	border: none;
+	border-radius: var(--radius-md);
+	cursor: pointer;
+	transition: all var(--transition-fast);
+	font-family: var(--font-sans);
+}
+
+.btn:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
+.btn-primary {
+	background-color: var(--color-primary);
+	color: var(--color-white);
+}
+
+.btn-primary:hover:not(:disabled) {
+	background-color: #1a3d5d;
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+	background-color: var(--color-secondary);
+	color: var(--color-white);
+}
+
+.btn-secondary:hover:not(:disabled) {
+	background-color: var(--color-tertiary);
+	transform: translateY(-1px);
+	box-shadow: var(--shadow-md);
+}
+
+.btn-outline {
+	background-color: transparent;
+	color: var(--color-primary);
+	border: 2px solid var(--color-primary);
+}
+
+.btn-outline:hover:not(:disabled) {
+	background-color: var(--color-primary);
+	color: var(--color-white);
+}
+
+/* Form Elements */
+.form-group {
+	margin-bottom: var(--spacing-lg);
+}
+
+.form-label {
+	display: block;
+	margin-bottom: var(--spacing-sm);
+	font-weight: 500;
+	color: var(--color-primary);
+	font-size: 0.875rem;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+}
+
+.form-input,
+.form-select {
+	width: 100%;
+	padding: var(--spacing-md);
+	font-size: 1rem;
+	font-family: var(--font-sans);
+	color: var(--color-black);
+	background-color: var(--color-white);
+	border: 2px solid var(--color-gray-light);
+	border-radius: var(--radius-md);
+	transition: all var(--transition-fast);
+}
+
+.form-input:focus,
+.form-select:focus {
+	outline: none;
+	border-color: var(--color-secondary);
+	box-shadow: 0 0 0 3px rgba(197, 165, 111, 0.1);
+}
+
+.form-input::placeholder {
+	color: var(--color-gray);
+}
+
+.form-error {
+	margin-top: var(--spacing-sm);
+	font-size: 0.875rem;
+	color: var(--color-error);
+}
+
+/* Cards */
+.card {
+	background-color: var(--color-white);
+	border-radius: var(--radius-lg);
+	box-shadow: var(--shadow-md);
+	padding: var(--spacing-xl);
+	transition: box-shadow var(--transition-base);
+}
+
+.card:hover {
+	box-shadow: var(--shadow-lg);
+}
+
+/* Container */
+.container {
+	width: 100%;
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 0 var(--spacing-lg);
+}
+
+.container-narrow {
+	max-width: 800px;
+}
+
+/* Utilities */
+.text-center {
+	text-align: center;
+}
+
+.text-right {
+	text-align: right;
+}
+
+.text-primary {
+	color: var(--color-primary);
+}
+
+.text-secondary {
+	color: var(--color-secondary);
+}
+
+.text-gray {
+	color: var(--color-gray);
+}
+
+.mt-sm {
+	margin-top: var(--spacing-sm);
+}
+.mt-md {
+	margin-top: var(--spacing-md);
+}
+.mt-lg {
+	margin-top: var(--spacing-lg);
+}
+.mt-xl {
+	margin-top: var(--spacing-xl);
+}
+
+.mb-sm {
+	margin-bottom: var(--spacing-sm);
+}
+.mb-md {
+	margin-bottom: var(--spacing-md);
+}
+.mb-lg {
+	margin-bottom: var(--spacing-lg);
+}
+.mb-xl {
+	margin-bottom: var(--spacing-xl);
+}
+
+/* Loading Spinner */
+.spinner {
+	display: inline-block;
+	width: 20px;
+	height: 20px;
+	border: 3px solid rgba(255, 255, 255, 0.3);
+	border-radius: 50%;
+	border-top-color: var(--color-white);
+	animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+	html {
+		font-size: 14px;
+	}
+
+	h1 {
+		font-size: 2rem;
+	}
+
+	h2 {
+		font-size: 1.5rem;
+	}
+
+	.container {
+		padding: 0 var(--spacing-md);
+	}
+}
+
