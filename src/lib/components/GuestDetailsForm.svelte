@@ -241,11 +241,13 @@
 
 		<!-- Total Price -->
 		<div class="summary-total">
-			<div class="total-row">
-				<span class="total-label">Total Amount</span>
-				<span class="total-price">{formatCurrency(selectedRate.amountAfterTax)}</span>
+			<div class="total-content">
+				<div class="total-label-section">
+					<span class="total-label">Total Amount</span>
+					<span class="total-note">For {nights} {pluralize(nights, 'night', 'nights')}</span>
+				</div>
+				<div class="total-price">{formatCurrency(selectedRate.amountAfterTax)}</div>
 			</div>
-			<div class="total-note">For {nights} {pluralize(nights, 'night', 'nights')}</div>
 		</div>
 	</div>
 
@@ -557,36 +559,46 @@
 
 	/* Total Price */
 	.summary-total {
-		background: linear-gradient(135deg, var(--color-primary) 0%, #0f2740 100%);
-		color: white;
-		padding: 1.5rem;
+		background: white;
+		border: 2px solid var(--color-secondary);
 		border-radius: 12px;
+		padding: 1.5rem;
 		margin-top: 1.5rem;
+		box-shadow: 0 2px 12px rgba(197, 165, 111, 0.15);
 	}
 
-	.total-row {
+	.total-content {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 0.5rem;
+		gap: 1rem;
+	}
+
+	.total-label-section {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
 	}
 
 	.total-label {
-		font-size: 1rem;
+		font-size: 0.875rem;
 		font-weight: 600;
-		opacity: 0.9;
+		color: #6b7280;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.total-note {
+		font-size: 0.8125rem;
+		color: #9ca3af;
+		font-weight: 500;
 	}
 
 	.total-price {
 		font-size: 2rem;
 		font-weight: 700;
-		color: var(--color-tertiary);
-	}
-
-	.total-note {
-		font-size: 0.8125rem;
-		opacity: 0.8;
-		text-align: right;
+		color: var(--color-secondary);
+		white-space: nowrap;
 	}
 
 	/* Form */
@@ -759,6 +771,12 @@
 			flex-direction: column;
 			align-items: flex-start;
 			gap: 1rem;
+		}
+
+		.total-content {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.75rem;
 		}
 
 		.total-price {
