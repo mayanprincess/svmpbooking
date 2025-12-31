@@ -252,40 +252,145 @@ export class OperaClient {
 	 * Create a reservation
 	 */
 	async createReservation(reservation: ReservationRequest): Promise<ReservationResponse> {
+		// CRITICAL: Validate that we have the exact values from availability search
+		console.log('🎯 Creating reservation with values:', {
+			hotelId: this.hotelId,
+			roomTypeCode: reservation.roomTypeCode,
+			ratePlanCode: reservation.ratePlanCode,
+			checkIn: reservation.checkIn,
+			checkOut: reservation.checkOut,
+			adults: reservation.adults,
+			children: reservation.children,
+			amountBeforeTax: reservation.amountBeforeTax
+		});
+
 		// Map our reservation request to OPERA's schema
 		const payload = this.mapReservationToOpera(reservation);
 
 		const endpoint = `/rsv/v1/hotels/${this.hotelId}/reservations`;
 
-		console.log('Creating reservation:', {
-			endpoint,
-			payload
-		});
+		console.log('📤 OPERA Reservation Payload (full):', JSON.stringify(payload, null, 2));
 
 		const response = await this.authorizedRequest(endpoint, {
 			method: 'POST',
 			body: JSON.stringify(payload)
 		});
 
+		console.log('📡 OPERA Response Status:', response.status, response.statusText);
+
 		if (!response.ok) {
 			const errorText = await response.text();
-			console.error('OPERA reservation error:', {
+			console.error('❌ OPERA reservation error:', {
 				status: response.status,
 				statusText: response.statusText,
-				body: errorText
+				body: errorText,
+				requestPayload: payload
 			});
 			throw new Error(`OPERA reservation error: ${response.status} ${errorText}`);
 		}
 
 		const data: ReservationResponse = await response.json();
 
-		console.log('OPERA reservation response:', data);
+	console.log('✅ OPERA reservation response (full):', JSON.stringify(data, null, 2));
 
-		console.log('✅ OPERA reservation response (full):', JSON.stringify(data, null, 2));
-		console.log('📋 Reservation summary:', {
-			confirmationNumber: data.confirmationNumber,
-			reservationId: data.reservationId
+	// Parse reservation ID and confirmation number from HATEOAS links
+	let reservationId: string | undefined;
+	let confirmationNumber: string | undefined;
+
+	if (data.links && data.links.length > 0) {
+		// Extract reservation ID from self link (e.g., /reservations/13454120)
+		const selfLink = data.links.find((link) => link.operationId === 'getReservation');
+		if (selfLink) {
+			const match = selfLink.href.match(/\/reservations\/(\d+)/);
+			if (match) {
+				reservationId = match[1];
+			}
+		}
+
+		// Extract confirmation number from query parameter
+		const confirmationLink = data.links.find((link) =>
+			link.href.includes('confirmationNumberList')
+		);
+		if (confirmationLink) {
+			const match = confirmationLink.href.match(/confirmationNumberList=(\d+)/);
+			if (match) {
+				confirmationNumber = match[1];
+			}
+		}
+	}
+
+	console.log('📋 Parsed reservation details:', {
+		reservationId,
+		confirmationNumber
+	});
+
+	return {
+		...data,
+		reservationId,
+		confirmationNumber
+	};
+	}
+
+	/**
+	 * Get reservation by ID (most reliable)
+	 */
+	async getReservationById(reservationId: string): Promise<any> {
+		const endpoint = `/rsv/v1/hotels/${this.hotelId}/reservations/${reservationId}`;
+
+		console.log('🔍 Looking up reservation by ID:', {
+			reservationId,
+			endpoint
 		});
+
+		const response = await this.authorizedRequest(endpoint, {
+			method: 'GET'
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error('OPERA reservation lookup error:', {
+				status: response.status,
+				statusText: response.statusText,
+				body: errorText
+			});
+			throw new Error(`OPERA reservation lookup error: ${response.status} ${errorText}`);
+		}
+
+		const data = await response.json();
+
+		console.log('✅ Reservation data:', JSON.stringify(data, null, 2));
+
+		return data;
+	}
+
+	/**
+	 * Get reservation by confirmation number
+	 */
+	async getReservationByConfirmationNumber(confirmationNumber: string): Promise<any> {
+		const endpoint = `/rsv/v1/hotels/${this.hotelId}/reservations?confirmationNumberList=${confirmationNumber}`;
+
+		console.log('🔍 Looking up reservation by confirmation number:', {
+			confirmationNumber,
+			endpoint
+		});
+
+		const response = await this.authorizedRequest(endpoint, {
+			method: 'GET'
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error('OPERA reservation lookup error:', {
+				status: response.status,
+				statusText: response.statusText,
+				body: errorText
+			});
+			throw new Error(`OPERA reservation lookup error: ${response.status} ${errorText}`);
+		}
+
+		const data = await response.json();
+
+		console.log('✅ Reservation data:', JSON.stringify(data, null, 2));
 
 		return data;
 	}
@@ -299,45 +404,24 @@ export class OperaClient {
 			reservations: {
 				reservation: [
 					{
+						// Source of sale info
 						sourceOfSale: {
 							sourceType: 'PMS',
 							sourceCode: this.hotelId
 						},
+
+						// Room stay details
 						roomStay: {
+							// Room rates
 							roomRates: [
 								{
-									total: {
-										amountBeforeTax: reservation.amountBeforeTax.toString()
-									},
-									rates: {
-										rate: [
-											{
-												base: {
-													amountBeforeTax: reservation.amountBeforeTax.toString(),
-													currencyCode: 'USD'
-												},
-												shareDistributionInstruction: 'Full',
-												total: {
-													amountBeforeTax: reservation.amountBeforeTax.toString()
-												},
-												start: reservation.checkIn,
-												end: reservation.checkOut
-											}
-										]
-									},
-									guestCounts: {
-										adults: reservation.adults.toString(),
-										children: reservation.children.toString()
-									},
 									roomType: reservation.roomTypeCode,
 									ratePlanCode: reservation.ratePlanCode,
 									start: reservation.checkIn,
 									end: reservation.checkOut,
-									suppressRate: true,
-									marketCode: 'LEISURE',
-									marketCodeDescription: 'Leisure',
+									suppressRate: false,
+									marketCode: 'INTERNET',
 									sourceCode: 'WEB',
-									sourceCodeDescription: 'Website',
 									numberOfUnits: '1',
 									pseudoRoom: false,
 									roomTypeCharged: reservation.roomTypeCode,
@@ -345,21 +429,62 @@ export class OperaClient {
 									complimentary: false,
 									fixedRate: true,
 									discountAllowed: false,
-									bogoDiscount: false
+									bogoDiscount: false,
+									roomNumberLocked: false,
+
+									// Guest counts at room rate level
+									guestCounts: {
+										adults: reservation.adults.toString(),
+										children: reservation.children.toString()
+									},
+
+									// Rate details
+									rates: {
+										rate: [
+											{
+												base: {
+													amountBeforeTax: reservation.amountBeforeTax.toString(),
+													currencyCode: 'USD'
+												},
+												total: {
+													amountBeforeTax: reservation.amountBeforeTax.toString()
+												},
+												start: reservation.checkIn,
+												end: reservation.checkOut,
+												shareDistributionInstruction: 'Full'
+											}
+										]
+									},
+
+									// Total amount
+									total: {
+										amountBeforeTax: reservation.amountBeforeTax.toString(),
+										currencyCode: 'USD'
+									}
 								}
 							],
+
+							// Guest counts at room stay level
 							guestCounts: {
 								adults: reservation.adults.toString(),
 								children: reservation.children.toString()
 							},
+
+							// Dates
 							arrivalDate: reservation.checkIn,
 							departureDate: reservation.checkOut,
+
+							// Guarantee
 							guarantee: {
 								onHold: true
 							},
+
+							// Flags
 							roomNumberLocked: false,
 							printRate: false
 						},
+
+						// Guest information
 						reservationGuests: [
 							{
 								profileInfo: {
@@ -370,9 +495,6 @@ export class OperaClient {
 													givenName: reservation.guest.firstName,
 													surname: reservation.guest.lastName,
 													nameType: 'Primary'
-												},
-												{
-													nameType: 'External'
 												}
 											],
 											language: 'E'
@@ -383,16 +505,65 @@ export class OperaClient {
 								primary: true
 							}
 						],
+
+						// Communication (email/phone if available)
+						reservationCommunication: {
+							emails: {
+								emailInfo: reservation.guest.email
+									? [
+											{
+												email: {
+													emailAddress: reservation.guest.email,
+													type: 'HOME',
+													primaryInd: true
+												}
+											}
+									  ]
+									: []
+							},
+							telephones: {
+								telephoneInfo: reservation.guest.phone
+									? [
+											{
+												telephone: {
+													phoneNumber: reservation.guest.phone,
+													phoneUseType: 'HOME',
+													primaryInd: true
+												}
+											}
+									  ]
+									: []
+							}
+						},
+
+						// Payment methods
 						reservationPaymentMethods: [
 							{
 								paymentMethod: 'CA',
-								folioView: '1'
+								folioView: 1
 							}
 						],
+
+						// Comments
+						comments: [
+							{
+								comment: {
+									text: {
+										value: 'Booking from website'
+									},
+									commentTitle: 'General Notes',
+									notificationLocation: 'RESERVATION',
+									type: 'GEN',
+									internal: false
+								}
+							}
+						],
+
+						// Hotel and status
 						hotelId: this.hotelId,
 						roomStayReservation: true,
 						reservationStatus: 'Reserved',
-						computedReservationStatus: 'DueIn',
+						computedReservationStatus: 'Reserved',
 						walkIn: false,
 						printRate: false,
 						preRegistered: false,

@@ -39,28 +39,34 @@ export const POST: RequestHandler = async ({ request }) => {
 			return json({ error: 'Rate plan is required' }, { status: 400 });
 		}
 
-		// Map to Opera PMS format
-		const reservationRequest: ReservationRequest = {
-			checkIn: bookingData.checkIn,
-			checkOut: bookingData.checkOut,
-			roomTypeCode: bookingData.room.roomTypeCode,
-			ratePlanCode: bookingData.rateCode,
-			adults: bookingData.adults,
-			children: bookingData.children,
-			guest: {
-				firstName: bookingData.mainContact.firstName,
-				lastName: bookingData.mainContact.lastName,
-				email: bookingData.mainContact.email,
-				phone: bookingData.mainContact.phone || ''
-			},
-			amountBeforeTax: bookingData.selectedRate?.amountBeforeTax || 0,
-			promoCode: bookingData.promoCode || undefined,
-			specialRequests: undefined // You can add this to your booking flow
-		};
+	// WARNING: Verify these values came from Opera availability search
+	console.warn('⚠️  IMPORTANT: Ensure these values came from Opera availability search:');
+	console.warn('   - roomTypeCode:', bookingData.room.roomTypeCode);
+	console.warn('   - ratePlanCode:', bookingData.rateCode);
+	console.warn('   - If these are hardcoded or not from Opera, the reservation will FAIL');
 
-		// Create reservation in Opera PMS
-		console.log('📤 Sending to Opera PMS...');
-		const operaResponse = await operaClient.createReservation(reservationRequest);
+	// Map to Opera PMS format
+	const reservationRequest: ReservationRequest = {
+		checkIn: bookingData.checkIn,
+		checkOut: bookingData.checkOut,
+		roomTypeCode: bookingData.room.roomTypeCode,
+		ratePlanCode: bookingData.rateCode,
+		adults: bookingData.adults,
+		children: bookingData.children,
+		guest: {
+			firstName: bookingData.mainContact.firstName,
+			lastName: bookingData.mainContact.lastName,
+			email: bookingData.mainContact.email,
+			phone: bookingData.mainContact.phone || ''
+		},
+		amountBeforeTax: bookingData.selectedRate?.amountBeforeTax || 0,
+		promoCode: bookingData.promoCode || undefined,
+		specialRequests: undefined // You can add this to your booking flow
+	};
+
+	// Create reservation in Opera PMS
+	console.log('📤 Sending to Opera PMS with complete data:', JSON.stringify(reservationRequest, null, 2));
+	const operaResponse = await operaClient.createReservation(reservationRequest);
 
 		console.log('✅ Opera reservation created:', {
 			confirmationNumber: operaResponse.confirmationNumber,

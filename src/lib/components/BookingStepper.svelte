@@ -171,18 +171,12 @@
 	async function handlePayment(data: any) {
 		// Save payment data to store
 		bookingStore.setPayment(data);
-		
-		const confirmationNumber = generateConfirmationNumber('MPB');
-		const reservationId = `RES-${Date.now()}`;
-		
-		bookingStore.setConfirmation(confirmationNumber, reservationId);
 		bookingStore.setLoading(true);
 
 		try {
 			// Track payment completion attempt
 			trackEvent('payment_completed', {
-				amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax,
-				confirmationNumber
+				amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax
 			});
 
 			// Get complete booking data from store
@@ -204,23 +198,27 @@
 				throw new Error(errorData.details || errorData.error || 'Failed to create reservation');
 			}
 
-			const result = await response.json();
+		const result = await response.json();
 
-			console.log('✅ Reservation created:', result);
+		console.log('✅ Reservation created:', result);
 
-			// Update confirmation with Opera response
-			if (result.operaConfirmation) {
-				bookingStore.setConfirmation(result.operaConfirmation, result.reservationId);
-			}
-
-			// Track successful booking
-			trackEvent('booking_confirmed', {
+		// Update confirmation with Opera PMS response
+		if (result.confirmationNumber && result.reservationId) {
+			bookingStore.setConfirmation(result.confirmationNumber, result.reservationId);
+			console.log('📋 Updated booking store with:', {
 				confirmationNumber: result.confirmationNumber,
-				reservationId: result.reservationId,
-				amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax,
-				roomType: $bookingStore.selectedRoom?.roomTypeCode,
-				nights: $nights
+				reservationId: result.reservationId
 			});
+		}
+
+		// Track successful booking
+		trackEvent('booking_confirmed', {
+			confirmationNumber: result.confirmationNumber,
+			reservationId: result.reservationId,
+			amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax,
+			roomType: $bookingStore.selectedRoom?.roomTypeCode,
+			nights: $nights
+		});
 
 			// Go to confirmation page
 			bookingStore.goToStep('confirmation');
@@ -235,8 +233,7 @@
 			// Track error
 			trackEvent('booking_error', {
 				step: 'payment',
-				error: error instanceof Error ? error.message : 'Unknown error',
-				confirmationNumber
+				error: error instanceof Error ? error.message : 'Unknown error'
 			});
 
 			// Show error to user

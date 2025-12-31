@@ -211,6 +211,12 @@ export interface ReservationResponse {
 	status?: string;
 	message?: string;
 	errors?: string[];
+	links?: Array<{
+		href: string;
+		rel: string;
+		method: string;
+		operationId: string;
+	}>;
 }
 
 // API Error
