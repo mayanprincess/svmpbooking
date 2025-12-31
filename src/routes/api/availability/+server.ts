@@ -30,9 +30,13 @@ export const GET: RequestHandler = async ({ url }) => {
 			throw error(400, 'Invalid date format. Use YYYY-MM-DD');
 		}
 
-		// Validate dates
-		const checkInDate = new Date(checkIn);
-		const checkOutDate = new Date(checkOut);
+		// Validate dates (using local timezone parsing to avoid timezone issues)
+		const [yearIn, monthIn, dayIn] = checkIn.split('-').map(Number);
+		const [yearOut, monthOut, dayOut] = checkOut.split('-').map(Number);
+		
+		const checkInDate = new Date(yearIn, monthIn - 1, dayIn);
+		const checkOutDate = new Date(yearOut, monthOut - 1, dayOut);
+		
 		const today = new Date();
 		today.setHours(0, 0, 0, 0);
 

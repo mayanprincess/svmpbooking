@@ -9,10 +9,12 @@
 
 	interface Props {
 		room: EnrichedRoomAvailability;
+		nights?: number;
 		language?: 'en' | 'es';
+		onSelect?: () => void;
 	}
 
-	let { room, language = 'en' }: Props = $props();
+	let { room, nights = 1, language = 'en', onSelect }: Props = $props();
 
 	let selectedRateIndex = $state(0);
 	let selectedRate = $derived(room.rates[selectedRateIndex]);
@@ -163,7 +165,7 @@
 		<!-- Book Button -->
 		{#if selectedRate}
 			<div class="room-actions">
-				<button type="button" class="btn-book-now">
+				<button type="button" class="btn-book-now" onclick={onSelect}>
 					<span>Reserve Now</span>
 					<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 						<path d="M7 10H13M13 10L10 7M13 10L10 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>

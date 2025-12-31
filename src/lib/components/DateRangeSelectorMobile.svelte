@@ -5,6 +5,9 @@
 	 * Uses native inputs with beautiful styling - NO dependencies
 	 */
 
+	import { formatLocalDate, calculateNightsBetween, parseLocalDate, getTodayLocalString } from '$lib/utils/date-helpers';
+	import { pluralize } from '$lib/utils/formatting';
+
 	interface Props {
 		checkIn: string;
 		checkOut: string;
@@ -17,7 +20,7 @@
 		checkIn = $bindable(''),
 		checkOut = $bindable(''),
 		onchange,
-		minDate = new Date().toISOString().split('T')[0],
+		minDate = getTodayLocalString(),
 		disabled = false
 	}: Props = $props();
 
@@ -26,29 +29,20 @@
 
 	// Validate dates when they change
 	$effect(() => {
-		if (checkIn && checkOut && new Date(checkOut) <= new Date(checkIn)) {
-			checkOut = '';
+		if (checkIn && checkOut) {
+			const startDate = parseLocalDate(checkIn);
+			const endDate = parseLocalDate(checkOut);
+			
+			if (endDate <= startDate) {
+				checkOut = '';
+			}
 		}
 		if (onchange && checkIn && checkOut) {
 			onchange(checkIn, checkOut);
 		}
 	});
 
-	function formatDate(dateStr: string): string {
-		if (!dateStr) return '';
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('en-US', { 
-			weekday: 'short',
-			month: 'short', 
-			day: 'numeric'
-		});
-	}
-
-	let nights = $derived(
-		checkIn && checkOut
-			? Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24))
-			: 0
-	);
+	let nights = $derived(calculateNightsBetween(checkIn, checkOut));
 </script>
 
 <div class="date-range-mobile">
@@ -76,7 +70,7 @@
 			/>
 			<div class="date-display" class:empty={!checkIn}>
 				{#if checkIn}
-					{formatDate(checkIn)}
+					{formatLocalDate(checkIn)}
 				{:else}
 					<span class="placeholder">Select date</span>
 				{/if}
@@ -121,7 +115,7 @@
 			/>
 			<div class="date-display" class:empty={!checkOut}>
 				{#if checkOut}
-					{formatDate(checkOut)}
+					{formatLocalDate(checkOut)}
 				{:else}
 					<span class="placeholder">Select date</span>
 				{/if}
@@ -141,7 +135,7 @@
 			<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<path d="M10 2L12.09 6.26L17 7.27L13.5 10.97L14.18 16L10 13.77L5.82 16L6.5 10.97L3 7.27L7.91 6.26L10 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 			</svg>
-			<span><strong>{nights}</strong> {nights === 1 ? 'Night' : 'Nights'}</span>
+			<span><strong>{nights}</strong> {pluralize(nights, 'Night', 'Nights')}</span>
 		</div>
 	{/if}
 </div>
@@ -250,11 +244,12 @@
 	}
 
 	.arrow-divider {
-		display: flex;
+		display: none;
 		align-items: center;
 		justify-content: center;
 		color: var(--color-secondary);
 		padding: var(--spacing-sm) 0;
+		margin-top: 1.rem;
 	}
 
 	.nights-display {
@@ -292,9 +287,11 @@
 		}
 
 		.arrow-divider {
+			display: flex;
 			grid-column: 2;
 			grid-row: 1;
-			padding-top: 2rem;
+			padding-top: 1.5rem;
+			margin-top: 2rem;
 		}
 
 		.date-field:nth-child(3) {

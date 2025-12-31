@@ -10,7 +10,8 @@ import type {
 	AvailabilityResponse,
 	OperaTokenResponse,
 	ReservationRequest,
-	ReservationResponse
+	ReservationResponse,
+	RoomStay
 } from '$lib/types/opera';
 
 // Simple in-memory cache for access token
@@ -192,45 +193,49 @@ export class OperaClient {
 
 		const data: AvailabilityResponse = await response.json();
 
+		// Extract the first hotel availability (usually there's only one)
+		const hotelAvail = data.hotelAvailability?.[0];
+		const roomStays = hotelAvail?.roomStays || [];
+
 		console.log('✅ OPERA availability response summary:', {
 			status: response.status,
-			roomStaysCount: data.roomStays?.length || 0,
-			hotelId: data.hotelId,
-			hotelName: data.hotelName,
-			responseKeys: Object.keys(data)
+			hotelId: hotelAvail?.hotelId,
+			roomStaysCount: roomStays.length,
+			closed: hotelAvail?.closed,
+			hasMore: hotelAvail?.hasMore
 		});
 
-		if (data.roomStays && data.roomStays.length > 0) {
+		if (roomStays.length > 0) {
 			console.log('📊 Room stays breakdown:');
+			
+			// Extract all room rates from room stays
+			const allRoomRates = roomStays.flatMap(stay => stay.roomRates || []);
 			
 			// Group by room type
 			const roomTypeMap = new Map<string, number>();
 			const ratePlanMap = new Map<string, number>();
 			
-			data.roomStays.forEach(stay => {
-				const roomCode = stay.roomType?.roomTypeCode || 'UNKNOWN';
+			allRoomRates.forEach((rate) => {
+				const roomCode = rate.roomType || 'UNKNOWN';
 				roomTypeMap.set(roomCode, (roomTypeMap.get(roomCode) || 0) + 1);
 				
-				stay.ratePlans?.forEach(rate => {
-					const rateCode = rate.ratePlanCode || 'UNKNOWN';
-					ratePlanMap.set(rateCode, (ratePlanMap.get(rateCode) || 0) + 1);
+				const rateCode = rate.ratePlanCode || 'UNKNOWN';
+				ratePlanMap.set(rateCode, (ratePlanMap.get(rateCode) || 0) + 1);
+			});
+
+			console.log('🏨 Room Types Found:', Array.from(roomTypeMap.entries()).map(([code, count]) => `${code} (${count})`).join(', '));
+			console.log('💰 Rate Plans Found:', Array.from(ratePlanMap.entries()).map(([code, count]) => `${code} (${count})`).join(', '));
+
+			// Show first room rate in detail
+			if (allRoomRates.length > 0) {
+				console.log('📋 First room rate example:', {
+					roomType: allRoomRates[0].roomType,
+					ratePlanCode: allRoomRates[0].ratePlanCode,
+					total: allRoomRates[0].total,
+					start: allRoomRates[0].start,
+					end: allRoomRates[0].end
 				});
-			});
-
-			console.log('Room Types Found:', Array.from(roomTypeMap.entries()).map(([code, count]) => `${code} (${count})`).join(', '));
-			console.log('Rate Plans Found:', Array.from(ratePlanMap.entries()).map(([code, count]) => `${code} (${count})`).join(', '));
-
-			// Show first room stay in detail
-			console.log('📋 First room stay example:', {
-				roomTypeCode: data.roomStays[0].roomType?.roomTypeCode,
-				roomTypeDescription: data.roomStays[0].roomType?.roomTypeDescription,
-				ratePlansCount: data.roomStays[0].ratePlans?.length || 0,
-				firstRatePlan: data.roomStays[0].ratePlans?.[0] ? {
-					code: data.roomStays[0].ratePlans[0].ratePlanCode,
-					name: data.roomStays[0].ratePlans[0].ratePlanName,
-					hasRates: !!data.roomStays[0].ratePlans[0].rates
-				} : null
-			});
+			}
 
 			// Full data available in console for inspection
 			console.groupCollapsed('🔍 Click to see full OPERA response');

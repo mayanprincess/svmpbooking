@@ -156,7 +156,7 @@ export const operaStaticConfig = {
 			sortOrder: 3
 		},
 		'AIP-2025': {
-			package: 'family',
+			package: 'premium',
 			labelEn: 'All Inclusive Premium 2025',
 			labelEs: 'Todo Incluido Premium 2025',
 			includes: ['meals', 'drinks', 'kids_club', 'activities', 'premium_spirits'],
@@ -176,26 +176,26 @@ export const operaStaticConfig = {
 		premium: {
 			labelEn: 'Premium',
 			labelEs: 'Premium',
-			color: 'amber',
-			bgClass: 'bg-amber-500'
+			color: '#b58e4b',
+			bgClass: 'bg-premium'
 		},
 		family: {
 			labelEn: 'Family',
 			labelEs: 'Familiar',
-			color: 'green',
-			bgClass: 'bg-green-500'
+			color: '#2babd9',
+			bgClass: 'bg-family'
 		},
 		basic: {
-			labelEn: 'Basic',
-			labelEs: 'Básico',
-			color: 'blue',
-			bgClass: 'bg-blue-500'
+			labelEn: 'Breakfast Only',
+			labelEs: 'Solo Desayuno',
+			color: '#2babd9',
+			bgClass: 'bg-breakfast'
 		},
 		promo: {
 			labelEn: 'Special',
 			labelEs: 'Especial',
-			color: 'purple',
-			bgClass: 'bg-purple-500'
+			color: '#9333ea',
+			bgClass: 'bg-promo'
 		}
 	},
 

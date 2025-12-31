@@ -52,19 +52,38 @@ export interface AvailabilityParams {
 
 // Room Stay (from OPERA API)
 export interface RoomStay {
-	roomType: {
-		roomTypeCode: string;
-		roomTypeDescription?: string;
-	};
-	ratePlans: RatePlan[];
+	roomRates: RoomRate[];
 	guestCounts?: {
 		adults?: number;
 		children?: number;
 	};
-	roomRates?: RoomRate[];
 }
 
-// Rate Plan (from OPERA API)
+// Room Rate (from OPERA API - THIS IS THE MAIN DATA STRUCTURE)
+export interface RoomRate {
+	roomType: string; // Room type code (e.g., "1BBFG", "2BMS")
+	ratePlanCode: string; // Rate plan code (e.g., "AIF-2025", "BI-2025")
+	total: {
+		amountBeforeTax: number;
+		amountAfterTax: number;
+		currencyCode: string;
+	};
+	rates?: {
+		[date: string]: {
+			amountBeforeTax: number;
+			amountAfterTax: number;
+			currencyCode: string;
+		};
+	};
+	start: string;
+	end: string;
+	suppressRate?: boolean;
+	marketCode?: string;
+	numberOfUnits?: number;
+	packages?: any[];
+}
+
+// Legacy interfaces (kept for backward compatibility)
 export interface RatePlan {
 	ratePlanCode: string;
 	ratePlanName?: string;
@@ -72,7 +91,6 @@ export interface RatePlan {
 	rates?: Rate[];
 }
 
-// Rate (from OPERA API)
 export interface Rate {
 	base?: {
 		amountBeforeTax?: number;
@@ -88,22 +106,26 @@ export interface Rate {
 	end?: string;
 }
 
-// Room Rate (from OPERA API)
-export interface RoomRate {
-	roomTypeCode?: string;
-	ratePlanCode?: string;
-	total?: {
-		amountBeforeTax?: number;
-		amountAfterTax?: number;
-		currencyCode?: string;
-	};
+// Hotel Availability Item (from OPERA API)
+export interface HotelAvailabilityItem {
+	roomStays: RoomStay[];
+	ratePlanSet?: string;
+	hotelId: string;
+	closed?: boolean;
+	redemption?: boolean;
+	hasMore?: boolean;
 }
 
-// Availability Response
+// Availability Response (from OPERA API)
 export interface AvailabilityResponse {
-	roomStays?: RoomStay[];
-	hotelId?: string;
-	hotelName?: string;
+	hotelAvailability: HotelAvailabilityItem[];
+	links?: Array<{
+		href: string;
+		rel: string;
+		templated: boolean;
+		method: string;
+		operationId: string;
+	}>;
 }
 
 // Enriched Room Availability (with local config merged)

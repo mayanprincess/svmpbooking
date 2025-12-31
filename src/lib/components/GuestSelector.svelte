@@ -361,7 +361,6 @@
 	.guest-note {
 		margin-top: var(--spacing-md);
 		padding-top: var(--spacing-md);
-		border-top: 1px solid var(--color-gray-light);
 		font-size: 0.75rem;
 		color: var(--color-gray);
 		text-align: center;

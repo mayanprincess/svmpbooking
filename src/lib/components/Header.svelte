@@ -60,41 +60,10 @@
 	<div class="header-container">
 		<div class="header-content">
 			<!-- Logo -->
-			<div class="logo">
-				<svg
-					width="32"
-					height="32"
-					viewBox="0 0 32 32"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path
-						d="M16 2L2 9L16 16L30 9L16 2Z"
-						fill="var(--color-secondary)"
-					/>
-					<path
-						d="M2 16L16 23L30 16"
-						stroke="var(--color-secondary)"
-						stroke-width="2"
-						stroke-linecap="round"
-					/>
-					<path
-						d="M2 23L16 30L30 23"
-						stroke="var(--color-secondary)"
-						stroke-width="2"
-						stroke-linecap="round"
-					/>
-				</svg>
-				<span class="logo-text">Booking Engine</span>
-			</div>
-
-			<!-- Desktop Navigation -->
-			<nav class="nav-desktop">
-				<a href="/" class="nav-link active">Book</a>
-				<a href="/rooms" class="nav-link">Rooms</a>
-				<a href="/offers" class="nav-link">Offers</a>
-				<a href="/contact" class="nav-link">Contact</a>
-			</nav>
+			<a href="/" class="logo">
+				<img src="/logomayan.png" alt="Logo" class="logo-img" />
+				<span class="logo-text">Mayan Princess Booking</span>
+			</a>
 
 			<!-- Right Side: Language & Mobile Menu -->
 			<div class="header-actions">
@@ -174,9 +143,9 @@
 					{/if}
 				</div>
 
-				<!-- Mobile Menu Button -->
+				<!-- Menu Button (Always Visible) -->
 				<button
-					class="mobile-menu-button"
+					class="menu-button"
 					onclick={toggleMobileMenu}
 					aria-label="Toggle menu"
 					aria-expanded={mobileMenuOpen}
@@ -186,13 +155,13 @@
 			</div>
 		</div>
 
-		<!-- Mobile Navigation -->
+		<!-- Navigation Menu -->
 		{#if mobileMenuOpen}
-			<nav class="nav-mobile">
-				<a href="/" class="nav-link-mobile active">Book</a>
-				<a href="/rooms" class="nav-link-mobile">Rooms</a>
-				<a href="/offers" class="nav-link-mobile">Offers</a>
-				<a href="/contact" class="nav-link-mobile">Contact</a>
+			<nav class="nav-menu">
+				<a href="/" class="nav-link active">Book</a>
+				<a href="/rooms" class="nav-link">Rooms</a>
+				<a href="/offers" class="nav-link">Offers</a>
+				<a href="/contact" class="nav-link">Contact</a>
 			</nav>
 		{/if}
 	</div>
@@ -239,50 +208,14 @@
 		opacity: 0.8;
 	}
 
-	.logo svg {
+	.logo-img {
+		height: 32px;
+		width: auto;
 		flex-shrink: 0;
 	}
 
 	.logo-text {
-		display: none;
-	}
-
-	/* Desktop Navigation */
-	.nav-desktop {
-		display: none;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.nav-link {
-		padding: 0.625rem 1rem;
-		color: var(--color-primary);
-		text-decoration: none;
-		font-weight: 500;
 		font-size: 0.9375rem;
-		border-radius: 8px;
-		transition: all 0.2s;
-		position: relative;
-	}
-
-	.nav-link:hover {
-		background: rgba(24, 52, 83, 0.05);
-		color: var(--color-primary);
-	}
-
-	.nav-link.active {
-		color: var(--color-secondary);
-	}
-
-	.nav-link.active::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		left: 1rem;
-		right: 1rem;
-		height: 2px;
-		background: var(--color-secondary);
-		border-radius: 2px 2px 0 0;
 	}
 
 	/* Header Actions */
@@ -397,8 +330,8 @@
 		margin-left: auto;
 	}
 
-	/* Mobile Menu Button */
-	.mobile-menu-button {
+	/* Menu Button (Always Visible) */
+	.menu-button {
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -408,6 +341,12 @@
 		border: none;
 		cursor: pointer;
 		padding: 0;
+		transition: all 0.2s;
+		border-radius: 8px;
+	}
+
+	.menu-button:hover {
+		background: rgba(24, 52, 83, 0.05);
 	}
 
 	.hamburger {
@@ -452,16 +391,17 @@
 		transform: rotate(-45deg);
 	}
 
-	/* Mobile Navigation */
-	.nav-mobile {
+	/* Navigation Menu */
+	.nav-menu {
 		display: flex;
 		flex-direction: column;
 		border-top: 1px solid rgba(24, 52, 83, 0.08);
 		padding: 1rem 0;
 		animation: slideDown 0.2s ease;
+		background: white;
 	}
 
-	.nav-link-mobile {
+	.nav-link {
 		padding: 0.875rem 1rem;
 		color: var(--color-primary);
 		text-decoration: none;
@@ -471,11 +411,11 @@
 		border-left: 3px solid transparent;
 	}
 
-	.nav-link-mobile:hover {
+	.nav-link:hover {
 		background: rgba(24, 52, 83, 0.05);
 	}
 
-	.nav-link-mobile.active {
+	.nav-link.active {
 		color: var(--color-secondary);
 		border-left-color: var(--color-secondary);
 		background: rgba(197, 165, 111, 0.05);
@@ -483,20 +423,12 @@
 
 	/* Tablet & Desktop */
 	@media (min-width: 768px) {
+		.logo-img {
+			height: 48px;
+		}
+
 		.logo-text {
-			display: block;
-		}
-
-		.nav-desktop {
-			display: flex;
-		}
-
-		.mobile-menu-button {
-			display: none;
-		}
-
-		.nav-mobile {
-			display: none;
+			font-size: 1.125rem;
 		}
 	}
 
@@ -509,12 +441,12 @@
 			font-size: 1.25rem;
 		}
 
-		.nav-desktop {
-			gap: 0.25rem;
+		.logo-img {
+			height: 52px;
 		}
 
-		.nav-link {
-			padding: 0.75rem 1.25rem;
+		.logo-text {
+			font-size: 1.25rem;
 		}
 	}
 </style>
