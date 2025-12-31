@@ -279,7 +279,10 @@ export class OperaClient {
 
 		const data: ReservationResponse = await response.json();
 
-		console.log('Reservation created:', {
+		console.log('OPERA reservation response:', data);
+
+		console.log('✅ OPERA reservation response (full):', JSON.stringify(data, null, 2));
+		console.log('📋 Reservation summary:', {
 			confirmationNumber: data.confirmationNumber,
 			reservationId: data.reservationId
 		});
@@ -289,60 +292,120 @@ export class OperaClient {
 
 	/**
 	 * Map our reservation format to OPERA's expected schema
-	 * NOTE: Adjust this based on your actual OPERA API documentation
+	 * Based on Opera Cloud API v1 documentation
 	 */
 	private mapReservationToOpera(reservation: ReservationRequest): unknown {
 		return {
-			reservations: [
-				{
-					hotelId: this.hotelId,
-					reservationGuests: [
-						{
-							profileInfo: {
-								profile: {
-									customer: {
-										personName: [
+			reservations: {
+				reservation: [
+					{
+						sourceOfSale: {
+							sourceType: 'PMS',
+							sourceCode: this.hotelId
+						},
+						roomStay: {
+							roomRates: [
+								{
+									total: {
+										amountBeforeTax: reservation.amountBeforeTax.toString()
+									},
+									rates: {
+										rate: [
 											{
-												givenName: reservation.guest.firstName,
-												surname: reservation.guest.lastName
-											}
-										],
-										email: [
-											{
-												emailAddress: reservation.guest.email,
-												primary: true
-											}
-										],
-										telephone: [
-											{
-												telephoneNumber: reservation.guest.phone,
-												primary: true
+												base: {
+													amountBeforeTax: reservation.amountBeforeTax.toString(),
+													currencyCode: 'USD'
+												},
+												shareDistributionInstruction: 'Full',
+												total: {
+													amountBeforeTax: reservation.amountBeforeTax.toString()
+												},
+												start: reservation.checkIn,
+												end: reservation.checkOut
 											}
 										]
-									}
+									},
+									guestCounts: {
+										adults: reservation.adults.toString(),
+										children: reservation.children.toString()
+									},
+									roomType: reservation.roomTypeCode,
+									ratePlanCode: reservation.ratePlanCode,
+									start: reservation.checkIn,
+									end: reservation.checkOut,
+									suppressRate: true,
+									marketCode: 'LEISURE',
+									marketCodeDescription: 'Leisure',
+									sourceCode: 'WEB',
+									sourceCodeDescription: 'Website',
+									numberOfUnits: '1',
+									pseudoRoom: false,
+									roomTypeCharged: reservation.roomTypeCode,
+									houseUseOnly: false,
+									complimentary: false,
+									fixedRate: true,
+									discountAllowed: false,
+									bogoDiscount: false
 								}
+							],
+							guestCounts: {
+								adults: reservation.adults.toString(),
+								children: reservation.children.toString()
+							},
+							arrivalDate: reservation.checkIn,
+							departureDate: reservation.checkOut,
+							guarantee: {
+								onHold: true
+							},
+							roomNumberLocked: false,
+							printRate: false
+						},
+						reservationGuests: [
+							{
+								profileInfo: {
+									profile: {
+										customer: {
+											personName: [
+												{
+													givenName: reservation.guest.firstName,
+													surname: reservation.guest.lastName,
+													nameType: 'Primary'
+												},
+												{
+													nameType: 'External'
+												}
+											],
+											language: 'E'
+										},
+										profileType: 'Guest'
+									}
+								},
+								primary: true
 							}
-						}
-					],
-					roomStay: {
-						arrivalDate: reservation.checkIn,
-						departureDate: reservation.checkOut,
-						roomType: reservation.roomTypeCode,
-						ratePlan: reservation.ratePlanCode,
-						guarantee: {
-							onHold: true
-						},
-						guestCounts: {
-							adults: reservation.adults,
-							children: reservation.children
-						},
-						specialRequests: reservation.specialRequests
-							? [{ text: reservation.specialRequests }]
-							: undefined,
-						promotionCode: reservation.promoCode
+						],
+						reservationPaymentMethods: [
+							{
+								paymentMethod: 'CA',
+								folioView: '1'
+							}
+						],
+						hotelId: this.hotelId,
+						roomStayReservation: true,
+						reservationStatus: 'Reserved',
+						computedReservationStatus: 'DueIn',
+						walkIn: false,
+						printRate: false,
+						preRegistered: false,
+						upgradeEligible: false,
+						allowAutoCheckin: false,
+						hasOpenFolio: false,
+						allowMobileCheckout: false,
+						allowMobileViewFolio: false,
+						allowPreRegistration: false,
+						optedForCommunication: false
 					}
-				}
-			]
+				]
+			}
 		};
 	}
 

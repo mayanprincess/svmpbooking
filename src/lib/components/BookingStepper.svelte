@@ -16,10 +16,11 @@
 	import Button from './shared/Button.svelte';
 	import Spinner from './shared/Spinner.svelte'; 
 	import type { EnrichedRoomAvailability } from '$lib/types/opera';
-	import { bookingStore, nights, isSearchValid, selectedRate } from '$lib/stores';
+	import { bookingStore, nights, isSearchValid, selectedRate, completeBookingData } from '$lib/stores';
 	import { generateConfirmationNumber, pluralize } from '$lib/utils/formatting';
 	import { formatLocalDate } from '$lib/utils/date-helpers';
 	import { scrollToElement, scrollToTop, scrollToTopInstant } from '$lib/utils/scroll';
+	import { trackEvent } from '$lib/services/analytics';
 
 	// Local state for form inputs (will sync with store)
 	let checkIn = $state('');
@@ -41,6 +42,15 @@
 	});
 
 	async function handleSearch() {
+		// Track search initiation
+		trackEvent('search_initiated', {
+			checkIn,
+			checkOut,
+			adults,
+			children,
+			promoCode: promoCode ? 'yes' : 'no'
+		});
+
 		// Sync local state to store
 		bookingStore.setSearchCriteria({
 			checkIn,
@@ -82,56 +92,171 @@
 			bookingStore.setAvailableRooms(rooms);
 			
 			if (rooms.length > 0) {
+				// Track successful search
+				trackEvent('search_completed', {
+					roomsFound: rooms.length,
+					checkIn,
+					checkOut,
+					nights: $nights
+				});
+
 				bookingStore.goToStep('select');
 				scrollToElement('room-selection');
 			} else {
 				bookingStore.setError('No rooms available for your dates. Please try different dates.');
+				
+				// Track no availability
+				trackEvent('search_completed', {
+					roomsFound: 0,
+					checkIn,
+					checkOut
+				});
 			}
 		} catch (err) {
 			bookingStore.setError(err instanceof Error ? err.message : 'An error occurred');
+			
+			// Track error
+			trackEvent('booking_error', {
+				step: 'search',
+				error: err instanceof Error ? err.message : 'Unknown error'
+			});
 		} finally {
 			bookingStore.setLoading(false);
 		}
 	}
 
 	function handleSelectRoom(room: EnrichedRoomAvailability, rateIndex: number) {
+		// Track room selection
+		trackEvent('room_selected', {
+			roomType: room.roomTypeCode,
+			roomName: room.roomTypeName.en,
+			ratePlan: room.rates[rateIndex].ratePlanCode,
+			amount: room.rates[rateIndex].amountAfterTax,
+			nights: $nights
+		});
+
 		bookingStore.selectRoom(room, rateIndex);
 		bookingStore.goToStep('details');
 		scrollToElement('guest-details');
 	}
 
 	function handleGuestDetails(data: any) {
+		// Track guest details completion
+		trackEvent('guest_details_completed', {
+			guestsCount: data.guests.length,
+			hasChildren: $bookingStore.children > 0
+		});
+
 		bookingStore.setGuests(data.guests);
 		bookingStore.goToStep('payment');
 		scrollToElement('payment-form');
+
+		// Track payment step started
+		trackEvent('payment_started', {
+			amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax
+		});
 	}
 
 	function goBackToDetails() {
+		// Track step back
+		trackEvent('step_back', {
+			from: 'payment',
+			to: 'details'
+		});
+
 		bookingStore.goToStep('details');
 		scrollToElement('guest-details', 200);
 	}
 
 	async function handlePayment(data: any) {
+		// Save payment data to store
 		bookingStore.setPayment(data);
 		
 		const confirmationNumber = generateConfirmationNumber('MPB');
 		const reservationId = `RES-${Date.now()}`;
 		
 		bookingStore.setConfirmation(confirmationNumber, reservationId);
+		bookingStore.setLoading(true);
 
-		// TODO: In production:
-		// 1. Process payment via payment gateway
-		// 2. Create reservation in OPERA using $completeBookingData
-		// 3. Send confirmation email
+		try {
+			// Track payment completion attempt
+			trackEvent('payment_completed', {
+				amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax,
+				confirmationNumber
+			});
 
-		bookingStore.goToStep('confirmation');
-		
-		// Force scroll to absolute top for confirmation page
-		scrollToTopInstant();
-		setTimeout(() => scrollToTop(0), 50);
+			// Get complete booking data from store
+			const bookingPayload = $completeBookingData;
+
+			console.log('📤 Sending reservation to API:', bookingPayload);
+
+			// Create reservation in Opera PMS
+			const response = await fetch('/api/reservations', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(bookingPayload)
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.details || errorData.error || 'Failed to create reservation');
+			}
+
+			const result = await response.json();
+
+			console.log('✅ Reservation created:', result);
+
+			// Update confirmation with Opera response
+			if (result.operaConfirmation) {
+				bookingStore.setConfirmation(result.operaConfirmation, result.reservationId);
+			}
+
+			// Track successful booking
+			trackEvent('booking_confirmed', {
+				confirmationNumber: result.confirmationNumber,
+				reservationId: result.reservationId,
+				amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax,
+				roomType: $bookingStore.selectedRoom?.roomTypeCode,
+				nights: $nights
+			});
+
+			// Go to confirmation page
+			bookingStore.goToStep('confirmation');
+			
+			// Force scroll to absolute top for confirmation page
+			scrollToTopInstant();
+			setTimeout(() => scrollToTop(0), 50);
+
+		} catch (error) {
+			console.error('❌ Reservation error:', error);
+			
+			// Track error
+			trackEvent('booking_error', {
+				step: 'payment',
+				error: error instanceof Error ? error.message : 'Unknown error',
+				confirmationNumber
+			});
+
+			// Show error to user
+			bookingStore.setError(
+				error instanceof Error 
+					? `Failed to create reservation: ${error.message}` 
+					: 'Failed to create reservation. Please try again.'
+			);
+		} finally {
+			bookingStore.setLoading(false);
+		}
 	}
 
 	function goBackToSearch() {
+		// Track step back
+		trackEvent('step_back', {
+			from: 'select',
+			to: 'search'
+		});
+
 		bookingStore.goToStep('search');
 		bookingStore.setAvailableRooms([]);
 		bookingStore.selectRoom(null as any, 0);
@@ -140,6 +265,12 @@
 	}
 
 	function goBackToSelection() {
+		// Track step back
+		trackEvent('step_back', {
+			from: 'details',
+			to: 'select'
+		});
+
 		bookingStore.goToStep('select');
 		bookingStore.selectRoom(null as any, 0);
 		scrollToElement('room-selection', 200);

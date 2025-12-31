@@ -184,6 +184,7 @@ export interface ReservationRequest {
 	adults: number;
 	children: number;
 	guest: GuestInfo;
+	amountBeforeTax: number;
 	specialRequests?: string;
 	promoCode?: string;
 }
