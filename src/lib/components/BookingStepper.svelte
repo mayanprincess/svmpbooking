@@ -2,6 +2,7 @@
 	/**
 	 * Booking Stepper Component
 	 * Multi-step booking flow with animations
+	 * Now using global store for state management
 	 */
 
 	import { fly } from 'svelte/transition';
@@ -15,42 +16,47 @@
 	import Button from './shared/Button.svelte';
 	import Spinner from './shared/Spinner.svelte'; 
 	import type { EnrichedRoomAvailability } from '$lib/types/opera';
+	import { bookingStore, nights, isSearchValid, selectedRate } from '$lib/stores';
 	import { generateConfirmationNumber, pluralize } from '$lib/utils/formatting';
-	import { calculateNightsBetween, formatLocalDate } from '$lib/utils/date-helpers';
+	import { formatLocalDate } from '$lib/utils/date-helpers';
 	import { scrollToElement, scrollToTop, scrollToTopInstant } from '$lib/utils/scroll';
 
-	// Step management
-	let currentStep = $state<'search' | 'select' | 'details' | 'payment' | 'confirmation'>('search');
-	
-	// Form state
+	// Local state for form inputs (will sync with store)
 	let checkIn = $state('');
 	let checkOut = $state('');
 	let adults = $state(2);
 	let children = $state(0);
 	let promoCode = $state('');
-	
-	// Search results
-	let rooms = $state<EnrichedRoomAvailability[]>([]);
-	let selectedRoom = $state<EnrichedRoomAvailability | null>(null);
-	let selectedRateIndex = $state(0);
-	let guestData = $state<any>(null);
-	let paymentData = $state<any>(null);
-	let confirmationNumber = $state<string>('');
-	let loading = $state(false);
-	let error = $state<string | null>(null);
 
-	// Validation and derived state
-	let isSearchValid = $derived(checkIn && checkOut && adults >= 1);
-	let nights = $derived(calculateNightsBetween(checkIn, checkOut));
+	// Local validation based on local state
+	let isFormValid = $derived(checkIn && checkOut && adults >= 1);
+
+	// Initialize from store
+	$effect(() => {
+		checkIn = $bookingStore.checkIn;
+		checkOut = $bookingStore.checkOut;
+		adults = $bookingStore.adults;
+		children = $bookingStore.children;
+		promoCode = $bookingStore.promoCode;
+	});
 
 	async function handleSearch() {
-		if (!isSearchValid) {
-			error = 'Please fill in all required fields';
+		// Sync local state to store
+		bookingStore.setSearchCriteria({
+			checkIn,
+			checkOut,
+			adults,
+			children,
+			promoCode
+		});
+
+		if (!isFormValid) {
+			bookingStore.setError('Please fill in all required fields');
 			return;
 		}
 
-		loading = true;
-		error = null;
+		bookingStore.setLoading(true);
+		bookingStore.clearError();
 
 		try {
 			const params = new URLSearchParams({
@@ -64,56 +70,61 @@
 				params.append('promoCode', promoCode);
 			}
 
-		const response = await fetch(`/api/availability?${params.toString()}`);
+			const response = await fetch(`/api/availability?${params.toString()}`);
 
-		if (!response.ok) {
-			throw new Error('Failed to fetch availability');
-		}
+			if (!response.ok) {
+				throw new Error('Failed to fetch availability');
+			}
 
-		const result = await response.json();
-		rooms = result.data?.rooms || [];
-		
-		if (rooms.length > 0) {
-			currentStep = 'select';
-			scrollToElement('room-selection');
-		} else {
-			error = 'No rooms available for your dates. Please try different dates.';
-		}
+			const result = await response.json();
+			const rooms = result.data?.rooms || [];
+			
+			bookingStore.setAvailableRooms(rooms);
+			
+			if (rooms.length > 0) {
+				bookingStore.goToStep('select');
+				scrollToElement('room-selection');
+			} else {
+				bookingStore.setError('No rooms available for your dates. Please try different dates.');
+			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'An error occurred';
+			bookingStore.setError(err instanceof Error ? err.message : 'An error occurred');
 		} finally {
-			loading = false;
+			bookingStore.setLoading(false);
 		}
 	}
 
 	function handleSelectRoom(room: EnrichedRoomAvailability, rateIndex: number) {
-		selectedRoom = room;
-		selectedRateIndex = rateIndex;
-		currentStep = 'details';
+		bookingStore.selectRoom(room, rateIndex);
+		bookingStore.goToStep('details');
 		scrollToElement('guest-details');
 	}
 
 	function handleGuestDetails(data: any) {
-		guestData = data;
-		currentStep = 'payment';
+		bookingStore.setGuests(data.guests);
+		bookingStore.goToStep('payment');
 		scrollToElement('payment-form');
 	}
 
 	function goBackToDetails() {
-		currentStep = 'details';
+		bookingStore.goToStep('details');
 		scrollToElement('guest-details', 200);
 	}
 
 	async function handlePayment(data: any) {
-		paymentData = data;
-		confirmationNumber = generateConfirmationNumber('MPB');
+		bookingStore.setPayment(data);
+		
+		const confirmationNumber = generateConfirmationNumber('MPB');
+		const reservationId = `RES-${Date.now()}`;
+		
+		bookingStore.setConfirmation(confirmationNumber, reservationId);
 
 		// TODO: In production:
 		// 1. Process payment via payment gateway
-		// 2. Create reservation in OPERA
+		// 2. Create reservation in OPERA using $completeBookingData
 		// 3. Send confirmation email
 
-		currentStep = 'confirmation';
+		bookingStore.goToStep('confirmation');
 		
 		// Force scroll to absolute top for confirmation page
 		scrollToTopInstant();
@@ -121,39 +132,39 @@
 	}
 
 	function goBackToSearch() {
-		currentStep = 'search';
-		rooms = [];
-		selectedRoom = null;
-		error = null;
+		bookingStore.goToStep('search');
+		bookingStore.setAvailableRooms([]);
+		bookingStore.selectRoom(null as any, 0);
+		bookingStore.clearError();
 		scrollToTop(200);
 	}
 
 	function goBackToSelection() {
-		currentStep = 'select';
-		selectedRoom = null;
+		bookingStore.goToStep('select');
+		bookingStore.selectRoom(null as any, 0);
 		scrollToElement('room-selection', 200);
 	}
 </script>
 
 <!-- Progress Indicator -->
-{#if currentStep !== 'confirmation'}
+{#if $bookingStore.currentStep !== 'confirmation'}
 	<div class="stepper-progress">
-		<div class="step" class:active={currentStep === 'search'} class:completed={currentStep !== 'search'}>
+		<div class="step" class:active={$bookingStore.currentStep === 'search'} class:completed={$bookingStore.currentStep !== 'search'}>
 			<div class="step-number">1</div>
 			<div class="step-label">Search</div>
 		</div>
-		<div class="step-line" class:active={currentStep !== 'search'}></div>
-		<div class="step" class:active={currentStep === 'select'} class:completed={['details', 'payment', 'confirmation'].includes(currentStep)}>
+		<div class="step-line" class:active={$bookingStore.currentStep !== 'search'}></div>
+		<div class="step" class:active={$bookingStore.currentStep === 'select'} class:completed={['details', 'payment', 'confirmation'].includes($bookingStore.currentStep)}>
 			<div class="step-number">2</div>
 			<div class="step-label">Select</div>
 		</div>
-		<div class="step-line" class:active={['details', 'payment', 'confirmation'].includes(currentStep)}></div>
-		<div class="step" class:active={currentStep === 'details'} class:completed={['payment', 'confirmation'].includes(currentStep)}>
+		<div class="step-line" class:active={['details', 'payment', 'confirmation'].includes($bookingStore.currentStep)}></div>
+		<div class="step" class:active={$bookingStore.currentStep === 'details'} class:completed={['payment', 'confirmation'].includes($bookingStore.currentStep)}>
 			<div class="step-number">3</div>
 			<div class="step-label">Details</div>
 		</div>
-		<div class="step-line" class:active={['payment', 'confirmation'].includes(currentStep)}></div>
-		<div class="step" class:active={currentStep === 'payment'} class:completed={['confirmation'].includes(currentStep)}>
+		<div class="step-line" class:active={['payment', 'confirmation'].includes($bookingStore.currentStep)}></div>
+		<div class="step" class:active={$bookingStore.currentStep === 'payment'} class:completed={['confirmation'].includes($bookingStore.currentStep)}>
 			<div class="step-number">4</div>
 			<div class="step-label">Payment</div>
 		</div>
@@ -161,7 +172,7 @@
 {/if}
 
 <!-- Step 1: Search -->
-{#if currentStep === 'search'}
+{#if $bookingStore.currentStep === 'search'}
 	<div class="step-content search-step" in:fly={{ y: 20, duration: 300 }}>
 		<div class="search-header">
 			<h2>Find Your Perfect Villa</h2>
@@ -176,8 +187,8 @@
 						bind:checkIn
 						bind:checkOut
 					/>
-					{#if nights > 0}
-						<span class="nights-badge">{nights} {pluralize(nights, 'night', 'nights')}</span>
+					{#if $nights > 0}
+						<span class="nights-badge">{$nights} {pluralize($nights, 'night', 'nights')}</span>
 					{/if}
 				</div>
 
@@ -195,19 +206,19 @@
 				</div>
 			</div>
 
-			{#if error}
-				<div class="error-message">{error}</div>
+			{#if $bookingStore.error}
+				<div class="error-message">{$bookingStore.error}</div>
 			{/if}
 
-			<Button type="submit" variant="primary" fullWidth disabled={!isSearchValid || loading} loading={loading}>
+			<Button type="submit" variant="primary" fullWidth disabled={!isFormValid || $bookingStore.loading} loading={$bookingStore.loading}>
 				{#snippet children()}
-					{#if !loading}
+					{#if !$bookingStore.loading}
 						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 							<circle cx="11" cy="11" r="8"></circle>
 							<path d="m21 21-4.35-4.35"></path>
 						</svg>
 					{/if}
-					{loading ? 'Searching...' : 'Search Rooms'}
+					{$bookingStore.loading ? 'Searching...' : 'Search Rooms'}
 				{/snippet}
 			</Button>
 		</form>
@@ -215,7 +226,7 @@
 {/if}
 
 <!-- Step 2: Select Room -->
-{#if currentStep === 'select'}
+{#if $bookingStore.currentStep === 'select'}
 	<div class="step-content select-step" id="room-selection" in:fly={{ y: 20, duration: 300 }}>
 		<div class="selection-header">
 			<button class="back-button" onclick={goBackToSearch}>
@@ -232,24 +243,24 @@
 						<line x1="8" y1="2" x2="8" y2="6"></line>
 						<line x1="3" y1="10" x2="21" y2="10"></line>
 					</svg>
-					{formatLocalDate(checkIn)} - {formatLocalDate(checkOut)}
+					{formatLocalDate($bookingStore.checkIn)} - {formatLocalDate($bookingStore.checkOut)}
 				</span>
 				<span class="summary-item">
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
 						<circle cx="12" cy="7" r="4"></circle>
 					</svg>
-					{adults} {pluralize(adults, 'Adult', 'Adults')}{children > 0 ? `, ${children} ${pluralize(children, 'Child', 'Children')}` : ''}
+					{$bookingStore.adults} {pluralize($bookingStore.adults, 'Adult', 'Adults')}{$bookingStore.children > 0 ? `, ${$bookingStore.children} ${pluralize($bookingStore.children, 'Child', 'Children')}` : ''}
 				</span>
-				<span class="summary-item">{nights} {pluralize(nights, 'Night', 'Nights')}</span>
+				<span class="summary-item">{$nights} {pluralize($nights, 'Night', 'Nights')}</span>
 			</div>
 		</div>
 
 		<div class="rooms-container">
-			<h3 class="rooms-title">{rooms.length} {pluralize(rooms.length, 'Villa', 'Villas')} Available</h3>
+			<h3 class="rooms-title">{$bookingStore.availableRooms.length} {pluralize($bookingStore.availableRooms.length, 'Villa', 'Villas')} Available</h3>
 			<div class="rooms-grid">
-				{#each rooms as room}
-					<RoomCardCompact {room} {nights} onSelect={handleSelectRoom} />
+				{#each $bookingStore.availableRooms as room}
+					<RoomCardCompact {room} nights={$nights} onSelect={handleSelectRoom} />
 				{/each}
 			</div>
 		</div>
@@ -257,16 +268,16 @@
 {/if}
 
 <!-- Step 3: Guest Details -->
-{#if currentStep === 'details' && selectedRoom}
+{#if $bookingStore.currentStep === 'details' && $bookingStore.selectedRoom}
 	<div class="step-content details-step" id="guest-details" in:fly={{ y: 20, duration: 300 }}>
 		<GuestDetailsForm
-			room={selectedRoom}
-			{adults}
-			{children}
-			{checkIn}
-			{checkOut}
-			{nights}
-			selectedRate={selectedRoom.rates[selectedRateIndex]}
+			room={$bookingStore.selectedRoom}
+			adults={$bookingStore.adults}
+			children={$bookingStore.children}
+			checkIn={$bookingStore.checkIn}
+			checkOut={$bookingStore.checkOut}
+			nights={$nights}
+			selectedRate={$bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex]}
 			onSubmit={handleGuestDetails}
 			onBack={goBackToSelection}
 		/>
@@ -274,10 +285,10 @@
 {/if}
 
 <!-- Step 4: Payment -->
-{#if currentStep === 'payment' && selectedRoom && guestData}
+{#if $bookingStore.currentStep === 'payment' && $bookingStore.selectedRoom && $bookingStore.guests.length > 0}
 	<div class="step-content payment-step" id="payment-form" in:fly={{ y: 20, duration: 300 }}>
 		<PaymentForm
-			amount={selectedRoom.rates[selectedRateIndex].amountAfterTax}
+			amount={$bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex].amountAfterTax}
 			currency="USD"
 			onSubmit={handlePayment}
 			onBack={goBackToDetails}
@@ -286,18 +297,18 @@
 {/if}
 
 <!-- Step 5: Confirmation -->
-{#if currentStep === 'confirmation' && selectedRoom && guestData}
+{#if $bookingStore.currentStep === 'confirmation' && $bookingStore.selectedRoom && $bookingStore.guests.length > 0}
 	<div class="step-content confirmation-step" in:fly={{ y: 20, duration: 300 }}>
 		<BookingConfirmation
-			{confirmationNumber}
-			room={selectedRoom}
-			selectedRate={selectedRoom.rates[selectedRateIndex]}
-			{checkIn}
-			{checkOut}
-			{nights}
-			guests={guestData.guests}
-			amount={selectedRoom.rates[selectedRateIndex].amountAfterTax}
-			email={guestData.guests[0].email}
+			confirmationNumber={$bookingStore.confirmationNumber}
+			room={$bookingStore.selectedRoom}
+			selectedRate={$bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex]}
+			checkIn={$bookingStore.checkIn}
+			checkOut={$bookingStore.checkOut}
+			nights={$nights}
+			guests={$bookingStore.guests}
+			amount={$bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex].amountAfterTax}
+			email={$bookingStore.guests[0].email || ''}
 		/>
 	</div>
 {/if}

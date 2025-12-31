@@ -6,6 +6,7 @@
 
 	import Header from '$lib/components/Header.svelte';
 	import BookingStepper from '$lib/components/BookingStepper.svelte';
+	import BookingDebugPanel from '$lib/components/BookingDebugPanel.svelte';
 </script>
 
 <svelte:head>
@@ -21,6 +22,9 @@
 	<main class="main-content" id="main-content">
 		<BookingStepper />
 	</main>
+
+	<!-- Debug Panel (only shows with ?debug=true in URL) -->
+	<BookingDebugPanel />
 </div>
 
 <style>
