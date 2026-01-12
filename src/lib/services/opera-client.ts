@@ -39,8 +39,9 @@ export class OperaClient {
 
 	/**
 	 * Get OAuth2 access token (with caching)
+	 * Made public for testing/debugging purposes
 	 */
-	private async getAccessToken(): Promise<string> {
+	async getAccessToken(): Promise<string> {
 		// Return cached token if still valid (with 5 minute buffer)
 		if (cachedToken && cachedToken.expiresAt > Date.now() + 5 * 60 * 1000) {
 			return cachedToken.token;
@@ -51,6 +52,16 @@ export class OperaClient {
 		const clientSecret = operaConfig.clientSecret;
 		const scope = operaConfig.scope;
 		const appKey = operaConfig.appKey;
+
+		// Debug logging for scope
+		console.log('🔐 OAuth2 Token Request:', {
+			clientId: clientId ? `${clientId.substring(0, 8)}...` : 'MISSING',
+			scope: scope || 'MISSING',
+			scopeLength: scope?.length || 0,
+			appKey: appKey ? `${appKey.substring(0, 8)}...` : 'MISSING',
+			enterpriseId: this.enterpriseId || 'MISSING',
+			gatewayUrl: this.gatewayUrl
+		});
 
 		const basicAuth = btoa(`${clientId}:${clientSecret}`);
 
@@ -70,10 +81,16 @@ export class OperaClient {
 
 		if (!response.ok) {
 			const errorText = await response.text();
-			console.error('OPERA OAuth error:', {
+			console.error('❌ OPERA OAuth error:', {
 				status: response.status,
 				statusText: response.statusText,
-				body: errorText
+				body: errorText,
+				requestedScope: scope,
+				hint: response.status === 403 
+					? 'Scope might not be authorized for this application. Check Oracle Hospitality Developer Portal.'
+					: response.status === 401
+					? 'Check CLIENT_ID and CLIENT_SECRET in .env file'
+					: 'Unknown OAuth error'
 			});
 			throw new Error(`Unable to obtain OPERA token: ${response.status} ${errorText}`);
 		}
