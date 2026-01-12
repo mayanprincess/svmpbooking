@@ -470,18 +470,44 @@ export class OperaClient {
 								children: reservation.children.toString()
 							},
 
-							// Dates
-							arrivalDate: reservation.checkIn,
-							departureDate: reservation.checkOut,
+					// Dates
+					arrivalDate: reservation.checkIn,
+					departureDate: reservation.checkOut,
 
-							// Guarantee
-							guarantee: {
-								onHold: true
-							},
+					// Guarantee - Using PROP (Property Guaranteed)
+					// This is the most universal guarantee code for web bookings
+					guarantee: {
+						guaranteeCode: 'PROP',
+						shortDescription: 'Property Guaranteed',
+						onHold: false // false = guaranteed reservation (appears in dashboard)
+					},
 
-							// Flags
-							roomNumberLocked: false,
-							printRate: false
+					// ALTERNATIVE OPTIONS (configured in your Opera property):
+					// 
+					// OPTION 1: Credit Card guarantee (if you process payments)
+					// guarantee: {
+					// 	guaranteeCode: 'CC',
+					// 	shortDescription: 'Credit Card Guaranteed',
+					// 	onHold: false
+					// },
+					//
+					// OPTION 2: Deposit Received (if deposit was paid)
+					// guarantee: {
+					// 	guaranteeCode: 'DRV',
+					// 	shortDescription: 'Deposit Received',
+					// 	onHold: false
+					// },
+					//
+					// OPTION 3: Direct Bill (for corporate accounts)
+					// guarantee: {
+					// 	guaranteeCode: 'DB',
+					// 	shortDescription: 'Direct Bill Guaranteed',
+					// 	onHold: false
+					// },
+
+					// Flags
+					roomNumberLocked: false,
+					printRate: false
 						},
 
 						// Guest information

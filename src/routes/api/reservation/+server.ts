@@ -42,24 +42,25 @@ export const POST: RequestHandler = async ({ request }) => {
 			throw error(400, 'Invalid email format');
 		}
 
-		// Create reservation request
-		const reservationRequest: ReservationRequest = {
-			checkIn: body.checkIn,
-			checkOut: body.checkOut,
-			roomTypeCode: body.roomTypeCode,
-			ratePlanCode: body.ratePlanCode,
-			adults: body.adults,
-			children: body.children || 0,
-			guest: {
-				firstName: body.guest.firstName,
-				lastName: body.guest.lastName,
-				email: body.guest.email,
-				phone: body.guest.phone,
-				address: body.guest.address
-			},
-			specialRequests: body.specialRequests,
-			promoCode: body.promoCode
-		};
+	// Create reservation request
+	const reservationRequest: ReservationRequest = {
+		checkIn: body.checkIn,
+		checkOut: body.checkOut,
+		roomTypeCode: body.roomTypeCode,
+		ratePlanCode: body.ratePlanCode,
+		adults: body.adults,
+		children: body.children || 0,
+		guest: {
+			firstName: body.guest.firstName,
+			lastName: body.guest.lastName,
+			email: body.guest.email,
+			phone: body.guest.phone,
+			address: body.guest.address
+		},
+		amountBeforeTax: body.amountBeforeTax || 0, // Required field
+		specialRequests: body.specialRequests,
+		promoCode: body.promoCode
+	};
 
 		// Call OPERA API
 		const operaResponse = await operaClient.createReservation(reservationRequest);

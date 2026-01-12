@@ -244,6 +244,36 @@ Replace or modify the logo section in the hero
 3. Token is cached in memory with automatic refresh
 4. All API calls use Bearer token authentication
 
+### Documentation
+
+📚 **Comprehensive guides available:**
+- **[OPERA_GUARANTEE_GUIDE.md](./OPERA_GUARANTEE_GUIDE.md)** - Complete guide on reservation guarantees, onHold vs guaranteed, and best practices
+- **[OPERA_EXAMPLES.md](./OPERA_EXAMPLES.md)** - Real-world examples, payloads, use cases, and troubleshooting
+- **[OPERA_RESERVATION_FIX.md](./OPERA_RESERVATION_FIX.md)** - Payload structure and mapping details
+- **[ANALYTICS_AND_RESERVATIONS.md](./ANALYTICS_AND_RESERVATIONS.md)** - Analytics and reservation flow documentation
+
+### Guarantee Types
+
+The booking engine uses **guaranteed reservations** by default (`onHold: false`):
+
+```typescript
+guarantee: {
+    guaranteeCode: '6PM',  // or 'CC', 'DEP', 'GT'
+    onHold: false          // false = guaranteed (appears in dashboard)
+}
+```
+
+**Common guarantee codes:**
+- `6PM` - Hold until 6PM (recommended for web bookings)
+- `CC` - Credit Card guarantee
+- `DEP` - Deposit paid
+- `GT` - General guarantee
+- `CA` - Cash payment
+
+⚠️ **Important:** Avoid `onHold: true` for web bookings as these reservations may not appear in Opera's standard dashboard view.
+
+See **[OPERA_GUARANTEE_GUIDE.md](./OPERA_GUARANTEE_GUIDE.md)** for detailed information.
+
 ### Security Best Practices
 
 ✅ **Implemented:**
@@ -252,6 +282,7 @@ Replace or modify the logo section in the hero
 - OAuth2 token caching to minimize auth requests
 - Input validation on all API endpoints
 - Error handling without exposing internal details
+- Guaranteed reservations for immediate dashboard visibility
 
 ⚠️ **Recommended for Production:**
 - Use a proper secrets manager (AWS Secrets Manager, HashiCorp Vault)
@@ -260,7 +291,8 @@ Replace or modify the logo section in the hero
 - Use Redis for token caching in multi-instance deployments
 - Add CSRF protection
 - Implement user session management
-- Add reservation payment processing
+- Add reservation payment processing (Stripe/PayPal)
+- Implement email confirmation system (SendGrid/Resend)
 
 ## Development
 
@@ -319,6 +351,41 @@ If no rooms appear:
 3. Check rate plans are active
 4. Look at browser console for API errors
 5. Verify `opera.ts` config matches OPERA codes
+
+### Reservation Not Showing in Opera Dashboard
+
+If a reservation was created (201 status) but doesn't appear in Opera PMS:
+
+**Common causes:**
+1. **OnHold is true** - Reservation is tentative, not guaranteed
+2. **Wrong hotel filter** - Check you're viewing the correct hotel
+3. **Status filter** - Some views don't show all reservation statuses
+
+**Quick fixes:**
+```typescript
+// 1. Make sure onHold is false (guaranteed reservation)
+guarantee: {
+    guaranteeCode: '6PM',
+    onHold: false  // ✅ Must be false for web bookings
+}
+
+// 2. In Opera Dashboard, try:
+// - Search by Reservation ID directly
+// - Enable "Include On Hold Reservations" filter
+// - Search with "All Status" selected
+// - Expand date range in search
+```
+
+**Detailed troubleshooting:** See [OPERA_GUARANTEE_GUIDE.md](./OPERA_GUARANTEE_GUIDE.md#troubleshooting)
+
+### Testing Reservations
+
+Use the built-in test page:
+```
+http://localhost:5173/test/reservation
+```
+
+Enter a confirmation number or reservation ID to verify the reservation exists in Opera PMS.
 
 ### TypeScript Errors
 
