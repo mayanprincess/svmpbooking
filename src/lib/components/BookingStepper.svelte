@@ -6,6 +6,7 @@
 	 */
 
 	import { fly } from 'svelte/transition';
+	import { tick } from 'svelte';
 	import DateRangeSelector from './DateRangeSelectorMobile.svelte';
 	import GuestSelector from './GuestSelector.svelte';
 	import PromoCodeInput from './PromoCodeInput.svelte';
@@ -21,6 +22,8 @@
 	import { formatLocalDate } from '$lib/utils/date-helpers';
 	import { scrollToElement, scrollToTop, scrollToTopInstant } from '$lib/utils/scroll';
 	import { trackEvent } from '$lib/services/analytics';
+	import DOMPurify from "dompurify";
+  import { config } from '$lib/config/config';
 
 	// Local state for form inputs (will sync with store)
 	let checkIn = $state('');
@@ -28,6 +31,10 @@
 	let adults = $state(2);
 	let children = $state(0);
 	let promoCode = $state('');
+	
+	// State for payment HTML
+	let showPaymentHtml = $state(false);
+	let paymentHtmlContent = $state<string>('');
 
 	// Local validation based on local state
 	let isFormValid = $derived(checkIn && checkOut && adults >= 1);
@@ -173,7 +180,96 @@
 		bookingStore.setPayment(data);
 		bookingStore.setLoading(true);
 
-		try {
+    const bookingPayload = $completeBookingData;
+    const body = {
+      checkIn: bookingPayload.checkIn,
+      checkOut: bookingPayload.checkOut,
+      roomTypeCode: bookingPayload.room?.roomTypeCode,
+      ratePlanCode: bookingPayload.rateCode,
+      adults: bookingPayload.adults,
+      children: bookingPayload.children,
+      guest: {
+        firstName: bookingPayload.mainContact?.firstName,
+        lastName: bookingPayload.mainContact?.lastName,
+        email: bookingPayload.mainContact?.email,
+        phone: bookingPayload.mainContact?.phone || ''
+      },
+      payment: {
+        cardNumber: data.cardNumber,
+        cardHolder: data.cardHolder,
+        expiryMonth: data.expiryMonth,
+        expiryYear: data.expiryYear,
+        cvv: data.cvv
+      },
+      amountBeforeTax: bookingPayload.selectedRate?.amountBeforeTax || 0,
+      promoCode: bookingPayload.promoCode || undefined,
+      specialRequests: undefined,
+    };
+
+    const response = await fetch(`${config.backendUrl}/reservations/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const responseData = await response.json();
+    console.log(responseData);
+
+    // Verificar si la respuesta es válida
+    const htmlContent = typeof responseData === 'string' ? responseData : responseData?.html || responseData?.iframe || '';
+    
+    if (!htmlContent || htmlContent.trim() === "") {
+      bookingStore.setLoading(false);
+      bookingStore.setError("Error al validar tu pago");
+      return;
+    }
+
+    // Sanitizar el HTML
+    const sanitizedHtml = DOMPurify.sanitize(htmlContent, {
+      ADD_TAGS: ["script", "form", "input"],
+      ADD_ATTR: ["onclick", "action", "method", "name", "type", "value", "id"],
+    });
+
+    // Guardar el HTML y mostrar el contenedor
+    paymentHtmlContent = sanitizedHtml;
+    showPaymentHtml = true;
+    bookingStore.setLoading(false);
+
+    // Esperar a que el DOM se actualice antes de inyectar scripts
+    await tick();
+    
+    // Buscar el contenedor por ID
+    const container = document.getElementById("html-container") as HTMLDivElement;
+    
+    if (!container) {
+      console.error("No se encontró el contenedor html-container");
+      bookingStore.setError("Error al mostrar el formulario de pago");
+      bookingStore.setLoading(false);
+      return;
+    }
+
+    // Inyectar el HTML
+    container.innerHTML = sanitizedHtml;
+
+    // Ejecutar scripts dentro del HTML
+    container.querySelectorAll("script").forEach((oldScript: HTMLScriptElement) => {
+      const newScript = document.createElement("script");
+      Array.from(oldScript.attributes).forEach((attr: Attr) => {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+      newScript.appendChild(document.createTextNode(oldScript.innerHTML));
+      oldScript.parentNode?.replaceChild(newScript, oldScript);
+    });
+
+    // Scroll al contenedor
+    setTimeout(() => {
+      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+
+
+		/*try {
 			// Track payment completion attempt
 			trackEvent('payment_completed', {
 				amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax
@@ -244,7 +340,7 @@
 			);
 		} finally {
 			bookingStore.setLoading(false);
-		}
+		}*/
 	}
 
 	function goBackToSearch() {
@@ -384,6 +480,8 @@
 			</div>
 		</div>
 
+    
+
 		<div class="rooms-container">
 			<h3 class="rooms-title">{$bookingStore.availableRooms.length} {pluralize($bookingStore.availableRooms.length, 'Villa', 'Villas')} Available</h3>
 			<div class="rooms-grid">
@@ -414,14 +512,24 @@
 
 <!-- Step 4: Payment -->
 {#if $bookingStore.currentStep === 'payment' && $bookingStore.selectedRoom && $bookingStore.guests.length > 0}
-	<div class="step-content payment-step" id="payment-form" in:fly={{ y: 20, duration: 300 }}>
-		<PaymentForm
-			amount={$bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex].amountAfterTax}
-			currency="USD"
-			onSubmit={handlePayment}
-			onBack={goBackToDetails}
-		/>
-	</div>
+	{#if showPaymentHtml}
+		<div class="step-content payment-step" id="payment-form" in:fly={{ y: 20, duration: 300 }}>
+			<div class="payment-html-wrapper">
+				<h2 class="payment-header">Procesando Pago</h2>
+				<p class="payment-description">Por favor complete el formulario de pago a continuación</p>
+				<div class="payment-html-container" id="html-container"></div>
+			</div>
+		</div>
+	{:else}
+		<div class="step-content payment-step" id="payment-form" in:fly={{ y: 20, duration: 300 }}>
+			<PaymentForm
+				amount={$bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex].amountAfterTax}
+				currency="USD"
+				onSubmit={handlePayment}
+				onBack={goBackToDetails}
+			/>
+		</div>
+	{/if}
 {/if}
 
 <!-- Step 5: Confirmation -->
@@ -738,6 +846,48 @@
 	@media (min-width: 1024px) {
 		.rooms-grid {
 			grid-template-columns: repeat(2, 1fr);
+		}
+	}
+
+	.payment-html-wrapper {
+		background: white;
+		border-radius: 16px;
+		padding: 2rem;
+		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+	}
+
+	.payment-header {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-primary);
+		margin-bottom: 0.5rem;
+		text-align: center;
+	}
+
+	.payment-description {
+		font-size: 0.9375rem;
+		color: #6b7280;
+		text-align: center;
+		margin-bottom: 1.5rem;
+	}
+
+	.payment-html-container {
+		width: 100%;
+		min-height: 500px;
+		border: 1px solid #e5e7eb;
+		border-radius: 8px;
+		background: white;
+		padding: 1rem;
+	}
+
+	@media (max-width: 768px) {
+		.payment-html-wrapper {
+			padding: 1.5rem;
+		}
+
+		.payment-html-container {
+			min-height: 400px;
+			padding: 0.5rem;
 		}
 	}
 </style>

@@ -20,7 +20,7 @@ export interface Guest {
 // Payment interface
 export interface PaymentInfo {
 	cardNumber: string;
-	cardholderName: string;
+	cardHolder: string;
 	expiryDate: string;
 	cvv: string;
 	billingAddress?: {
