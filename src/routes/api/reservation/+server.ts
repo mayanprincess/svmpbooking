@@ -59,7 +59,7 @@ export const POST: RequestHandler = async ({ request }) => {
 		},
 		amountBeforeTax: body.amountBeforeTax || 0, // Required field
 		specialRequests: body.specialRequests,
-		promoCode: body.promoCode
+		promoCode: body.promoCode,
 	};
 
 		// Call OPERA API

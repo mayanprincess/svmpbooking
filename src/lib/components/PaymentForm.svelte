@@ -119,7 +119,11 @@
 		onSubmit({
 			cardLast4: cardNumber.slice(-4),
 			cardBrand,
-			cardHolder
+			cardHolder,
+      cardNumber,
+      expiryMonth,
+      expiryYear,
+      cvv
 		});
 
 		processing = false;
