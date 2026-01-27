@@ -23,7 +23,6 @@
 	import { scrollToElement, scrollToTop, scrollToTopInstant } from '$lib/utils/scroll';
 	import { trackEvent } from '$lib/services/analytics';
 	import DOMPurify from "dompurify";
-  import { config } from '$lib/config/config';
 
 	// Local state for form inputs (will sync with store)
 	let checkIn = $state('');
@@ -206,7 +205,7 @@
       specialRequests: undefined,
     };
 
-    const response = await fetch(`${config.backendUrl}/reservations/`, {
+    const response = await fetch('/api/reservation', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -214,11 +213,17 @@
       body: JSON.stringify(body)
     });
 
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.details || errorData.error || 'Failed to create reservation');
+    }
+
     const responseData = await response.json();
-    console.log(responseData);
+
+    const iframeHtml = responseData.data;
 
     // Verificar si la respuesta es válida
-    const htmlContent = typeof responseData === 'string' ? responseData : responseData?.html || responseData?.iframe || '';
+    const htmlContent = iframeHtml;
     
     if (!htmlContent || htmlContent.trim() === "") {
       bookingStore.setLoading(false);
@@ -281,18 +286,7 @@
 			console.log('📤 Sending reservation to API:', bookingPayload);
 
 			// Create reservation in Opera PMS
-			const response = await fetch('/api/reservations', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify(bookingPayload)
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.details || errorData.error || 'Failed to create reservation');
-			}
+			
 
 		const result = await response.json();
 
