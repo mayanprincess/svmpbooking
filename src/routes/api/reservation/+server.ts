@@ -7,6 +7,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { operaClient } from '$lib/services/opera-client';
 import type { ReservationRequest } from '$lib/types/opera';
+import { config } from '$lib/config/config';
 
 export const POST: RequestHandler = async ({ request }) => {
 	try {
@@ -19,7 +20,10 @@ export const POST: RequestHandler = async ({ request }) => {
 			'roomTypeCode',
 			'ratePlanCode',
 			'adults',
-			'guest'
+			'guest',
+      'children',
+      'amountBeforeTax',
+      'payment'
 		];
 
 		for (const field of requiredFields) {
@@ -42,32 +46,36 @@ export const POST: RequestHandler = async ({ request }) => {
 			throw error(400, 'Invalid email format');
 		}
 
-	// Create reservation request
-	const reservationRequest: ReservationRequest = {
-		checkIn: body.checkIn,
-		checkOut: body.checkOut,
-		roomTypeCode: body.roomTypeCode,
-		ratePlanCode: body.ratePlanCode,
-		adults: body.adults,
-		children: body.children || 0,
-		guest: {
-			firstName: body.guest.firstName,
-			lastName: body.guest.lastName,
-			email: body.guest.email,
-			phone: body.guest.phone,
-			address: body.guest.address
-		},
-		amountBeforeTax: body.amountBeforeTax || 0, // Required field
-		specialRequests: body.specialRequests,
-		promoCode: body.promoCode,
-	};
+    const reservationRequest = {
+      checkIn: body.checkIn,
+      checkOut: body.checkOut,
+      roomTypeCode: body.roomTypeCode,
+      ratePlanCode: body.ratePlanCode,
+      adults: body.adults,
+      children: body.children,
+      guest: body.guest,
+      payment: body.payment,
+      amountBeforeTax: body.amountBeforeTax,
+      promoCode: body.promoCode,
+      specialRequests: body.specialRequests,
+    };
+
+    console.log(reservationRequest);
 
 		// Call OPERA API
-		const operaResponse = await operaClient.createReservation(reservationRequest);
+		const response = await fetch(`${config.backendUrl}/reservations/`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify(reservationRequest)
+		});
+
+		const data = await response.json();
 
 		return json({
 			success: true,
-			data: operaResponse
+			data: data
 		});
 	} catch (err) {
 		console.error('Reservation API error:', err);
@@ -81,4 +89,3 @@ export const POST: RequestHandler = async ({ request }) => {
 		});
 	}
 };
-
