@@ -18,7 +18,8 @@ export type AnalyticsEvent =
 	| 'booking_confirmed'
 	| 'booking_error'
 	| 'step_back'
-	| 'form_abandoned';
+	| 'form_abandoned'
+  | 'payment_step_reached';  
 
 export interface AnalyticsEventData {
 	event: AnalyticsEvent;

@@ -13,7 +13,6 @@ export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = await request.json();
 
-		// Validate required fields
 		const requiredFields = [
 			'checkIn',
 			'checkOut',
@@ -21,9 +20,8 @@ export const POST: RequestHandler = async ({ request }) => {
 			'ratePlanCode',
 			'adults',
 			'guest',
-      'children',
-      'amountBeforeTax',
-      'payment'
+			'children',
+			'amountBeforeTax'
 		];
 
 		for (const field of requiredFields) {
@@ -54,7 +52,6 @@ export const POST: RequestHandler = async ({ request }) => {
       adults: body.adults,
       children: body.children,
       guest: body.guest,
-      payment: body.payment,
       amountBeforeTax: body.amountBeforeTax,
       promoCode: body.promoCode,
       specialRequests: body.specialRequests,
@@ -63,7 +60,7 @@ export const POST: RequestHandler = async ({ request }) => {
     console.log(reservationRequest);
 
 		// Call OPERA API
-		const response = await fetch(`${config.backendUrl}/reservations/`, {
+		const response = await fetch(`${config.backendUrl}/reservations`, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'
