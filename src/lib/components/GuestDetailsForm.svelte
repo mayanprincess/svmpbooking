@@ -28,11 +28,12 @@
 		checkOut: string;
 		nights: number;
 		selectedRate: any;
+		loading?: boolean;
 		onSubmit: (data: any) => void;
 		onBack: () => void;
 	}
 
-	let { room, adults, children, checkIn, checkOut, nights, selectedRate, onSubmit, onBack }: Props = $props();
+	let { room, adults, children, checkIn, checkOut, nights, selectedRate, loading = false, onSubmit, onBack }: Props = $props();
 
 	// Initialize guests array
 	let guests = $state<Guest[]>([]);
@@ -386,14 +387,18 @@
 					Back
 				{/snippet}
 			</Button>
-			<Button type="submit" variant="primary" fullWidth>
-				{#snippet children()}
+		<Button type="submit" variant="primary" fullWidth {loading}>
+			{#snippet children()}
+				{#if loading}
+					Processing...
+				{:else}
 					Continue to Payment
 					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M5 12h14M12 5l7 7-7 7"/>
 					</svg>
-				{/snippet}
-			</Button>
+				{/if}
+			{/snippet}
+		</Button>
 		</div>
 	</form>
 </div>

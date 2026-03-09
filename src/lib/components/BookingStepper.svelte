@@ -12,17 +12,24 @@
 	import PromoCodeInput from './PromoCodeInput.svelte';
 	import RoomCardCompact from './RoomCardCompact.svelte';
 	import GuestDetailsForm from './GuestDetailsForm.svelte';
-	import PaymentForm from './PaymentForm.svelte';
 	import BookingConfirmation from './BookingConfirmation.svelte';
 	import Button from './shared/Button.svelte';
-	import Spinner from './shared/Spinner.svelte'; 
 	import type { EnrichedRoomAvailability } from '$lib/types/opera';
-	import { bookingStore, nights, isSearchValid, selectedRate, completeBookingData } from '$lib/stores';
-	import { generateConfirmationNumber, pluralize } from '$lib/utils/formatting';
+	import { bookingStore, nights, completeBookingData } from '$lib/stores';
+	import { pluralize } from '$lib/utils/formatting';
 	import { formatLocalDate } from '$lib/utils/date-helpers';
 	import { scrollToElement, scrollToTop, scrollToTopInstant } from '$lib/utils/scroll';
 	import { trackEvent } from '$lib/services/analytics';
-	import DOMPurify from "dompurify";
+
+	// Unified Checkout state
+	let paymentToken = $state('');
+	let reservationId = $state('');
+	let ucScriptUrl = $state<string | null>(null);
+	let ucScriptIntegrity = $state<string | null>(null);
+	let showPaymentHtml = $state(false);
+	let unifiedCheckoutLaunched = $state(false);
+	let paymentResetTrigger = $state(0);
+	let ucPaymentsRef = $state<any>(null);
 
 	// Local state for form inputs (will sync with store)
 	let checkIn = $state('');
@@ -31,10 +38,6 @@
 	let children = $state(0);
 	let promoCode = $state('');
 	
-	// State for payment HTML
-	let showPaymentHtml = $state(false);
-	let paymentHtmlContent = $state<string>('');
-
 	// Local validation based on local state
 	let isFormValid = $derived(checkIn && checkOut && adults >= 1);
 
@@ -45,6 +48,14 @@
 		adults = $bookingStore.adults;
 		children = $bookingStore.children;
 		promoCode = $bookingStore.promoCode;
+	});
+
+	// Lanzar Unified Checkout al llegar al paso payment con token disponible
+	$effect(() => {
+		if ($bookingStore.currentStep === 'payment' && paymentToken && !unifiedCheckoutLaunched) {
+			unifiedCheckoutLaunched = true;
+			launchUnifiedCheckout();
+		}
 	});
 
 	async function handleSearch() {
@@ -146,21 +157,239 @@
 		scrollToElement('guest-details');
 	}
 
-	function handleGuestDetails(data: any) {
-		// Track guest details completion
+	async function handleGuestDetails(data: any) {
 		trackEvent('guest_details_completed', {
 			guestsCount: data.guests.length,
 			hasChildren: $bookingStore.children > 0
 		});
 
 		bookingStore.setGuests(data.guests);
-		bookingStore.goToStep('payment');
-		scrollToElement('payment-form');
+		await requestCaptureContextFromReservation();
+	}
 
-		// Track payment step started
-		trackEvent('payment_started', {
-			amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax
+	/**
+	 * Decodifica el payload de un JWT (capture context) para leer clientLibrary y clientLibraryIntegrity.
+	 */
+	function decodeJwtPayload(jwt: string): Record<string, unknown> | null {
+		try {
+			const parts = jwt.split('.');
+			if (parts.length !== 3) return null;
+			const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+			return JSON.parse(atob(base64)) as Record<string, unknown>;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
+	 * Carga el script de CyberSource Unified Checkout (clientLibrary).
+	 * Según la doc, la URL e integridad deben venir del capture context.
+	 */
+	function loadUnifiedCheckoutScript(url: string, integrity?: string | null): Promise<void> {
+		return new Promise((resolve, reject) => {
+			if (document.querySelector(`script[src="${url}"]`)) {
+				resolve();
+				return;
+			}
+			const script = document.createElement('script');
+			script.src = url;
+			script.crossOrigin = 'anonymous';
+			if (integrity) script.integrity = integrity;
+			script.onload = () => resolve();
+			script.onerror = () => reject(new Error('Failed to load Unified Checkout script'));
+			document.head.appendChild(script);
 		});
+	}
+
+	/**
+	 * Inicializa Unified Checkout con type CAPTURE.
+	 * CyberSource maneja todo internamente (cobro + 3DS).
+	 * Solo necesitamos show() → complete().
+	 */
+	async function launchUnifiedCheckout(): Promise<void> {
+		const captureContext = paymentToken;
+		if (!captureContext || typeof window === 'undefined') return;
+
+		const scriptUrl = ucScriptUrl;
+		if (!scriptUrl) {
+			bookingStore.setError('Unified Checkout: falta URL del script.');
+			return;
+		}
+
+		try {
+			await loadUnifiedCheckoutScript(scriptUrl, ucScriptIntegrity);
+
+			const Accept = (window as any).Accept;
+			if (!Accept) {
+				bookingStore.setError('Unified Checkout: script no definió Accept.');
+				return;
+			}
+
+			const accept = await Accept(captureContext);
+			const up = await accept.unifiedPayments(false);
+			ucPaymentsRef = up;
+
+			const showArgs = {
+				containers: {
+					paymentSelection: '#uc-payment-selection',
+					paymentScreen: '#html-container'
+				}
+			};
+
+			const showResult = await up.show(showArgs);
+
+			const completeResponse = await up.complete(showResult);
+			const decodedResponse = typeof completeResponse === 'string'
+				? decodeJwtPayload(completeResponse)
+				: completeResponse;
+			if (decodedResponse?.outcome === 'AUTHORIZED' || decodedResponse?.status === 'AUTHORIZED') {
+
+				const approvalCode = decodedResponse.details?.processorInformation?.approvalCode || '';
+				const paymentId = decodedResponse.id || '';
+
+				const confirmRes = await fetch('/api/payment/confirm-payment', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						ReservationId: reservationId,
+						ApprovalCode: approvalCode,
+						PaymentId: paymentId
+					})
+				});
+
+				const confirmJson = await confirmRes.json();
+				if (!confirmRes.ok) {
+					throw new Error(confirmJson.message || 'Error al confirmar el pago');
+				}
+
+				const confirmData = confirmJson.data;
+
+				bookingStore.setConfirmation(
+					confirmData.confirmationNumber || reservationId,
+					confirmData.reservationId || reservationId
+				);
+				bookingStore.goToStep('confirmation');
+				scrollToTopInstant();
+				setTimeout(() => scrollToTop(0), 50);
+			} else {
+				throw new Error(`El cobro no fue aprobado. Estado: ${decodedResponse?.outcome || 'desconocido'}`);
+			}
+		} catch (err: any) {
+			console.error('[UC] Error en flujo de pago:', err?.reason || err?.message);
+			bookingStore.setError(
+				err?.reason === 'COMPLETE_AUTHENTICATION_FAILED'
+					? 'La autenticación 3D Secure falló. Por favor intenta con otra tarjeta.'
+					: err?.message || 'Error al procesar el pago.'
+			);
+			await restartPaymentFlow();
+		}
+	}
+
+	/**
+	 * Limpia el estado de Unified Checkout y vuelve a solicitar un capture context
+	 * para que el usuario pueda intentar con otra tarjeta.
+	 */
+	async function restartPaymentFlow(): Promise<void> {
+		const paymentSelection = document.getElementById('uc-payment-selection');
+		const htmlContainer = document.getElementById('html-container');
+		if (paymentSelection) paymentSelection.innerHTML = '';
+		if (htmlContainer) htmlContainer.innerHTML = '';
+
+		// Limpiar el script anterior de UC para forzar recarga
+		const oldScript = document.querySelector(`script[src="${ucScriptUrl}"]`);
+		if (oldScript) oldScript.remove();
+
+		// Resetear estado
+		paymentToken = '';
+		ucScriptUrl = null;
+		ucScriptIntegrity = null;
+		unifiedCheckoutLaunched = false;
+		ucPaymentsRef = null;
+
+		// Volver a pedir capture context (genera nuevo token + relanza UC)
+		await requestCaptureContextFromReservation();
+	}
+
+	/**
+	 * Llama a /api/reservation para crear la reserva y obtener el capture context (Token)
+	 * necesario para inicializar el Unified Checkout en el paso 4.
+	 */
+	async function requestCaptureContextFromReservation(): Promise<void> {
+		bookingStore.setLoading(true);
+		try {
+			const bookingPayload = $completeBookingData;
+			const body = {
+				checkIn: bookingPayload.checkIn,
+				checkOut: bookingPayload.checkOut,
+				roomTypeCode: bookingPayload.room?.roomTypeCode,
+				ratePlanCode: bookingPayload.rateCode,
+				adults: bookingPayload.adults,
+				children: bookingPayload.children,
+				guest: {
+					firstName: bookingPayload.mainContact?.firstName,
+					lastName: bookingPayload.mainContact?.lastName,
+					email: bookingPayload.mainContact?.email,
+					phone: bookingPayload.mainContact?.phone || ''
+				},
+				amountBeforeTax: bookingPayload.selectedRate?.amountBeforeTax || 0,
+				promoCode: bookingPayload.promoCode || undefined,
+				specialRequests: undefined
+			};
+
+			const response = await fetch('/api/reservation', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(errorData.details || errorData.error || 'Error al crear la reserva');
+			}
+
+		const result = await response.json();
+		const captureContext = result.data?.Token;
+		const resId = result.data?.ReservationId;
+
+		if (!captureContext) {
+			bookingStore.setError(result.data?.Message || 'No se recibió el token de pago.');
+			return;
+		}
+
+		paymentToken = captureContext;
+		reservationId = resId || '';
+
+			const payload = decodeJwtPayload(captureContext);
+			if (payload?.ctx) {
+				const ctx = payload.ctx as Array<{ data?: { clientLibrary?: string; clientLibraryIntegrity?: string; targetOrigins?: string[] } }>;
+				const ctxData = ctx?.[0]?.data;
+				if (ctxData?.clientLibrary) {
+					ucScriptUrl = ctxData.clientLibrary;
+					ucScriptIntegrity = ctxData.clientLibraryIntegrity ?? null;
+				}
+			}
+
+			if (!ucScriptUrl && payload?.clientLibrary) {
+				ucScriptUrl = payload.clientLibrary as string;
+				ucScriptIntegrity = (payload.clientLibraryIntegrity as string) ?? null;
+			}
+
+			showPaymentHtml = true;
+			unifiedCheckoutLaunched = false;
+			bookingStore.goToStep('payment');
+			await tick();
+			scrollToElement('payment-form');
+
+			trackEvent('payment_step_reached', {
+				roomType: bookingPayload.room?.roomTypeCode,
+				amount: bookingPayload.selectedRate?.amountAfterTax
+			});
+		} catch (err) {
+			console.error('Error al obtener token de pago:', err);
+			bookingStore.setError(err instanceof Error ? err.message : 'Error al preparar el pago.');
+		} finally {
+			bookingStore.setLoading(false);
+		}
 	}
 
 	function goBackToDetails() {
@@ -172,169 +401,6 @@
 
 		bookingStore.goToStep('details');
 		scrollToElement('guest-details', 200);
-	}
-
-	async function handlePayment(data: any) {
-		// Save payment data to store
-		bookingStore.setPayment(data);
-		bookingStore.setLoading(true);
-
-    const bookingPayload = $completeBookingData;
-    const body = {
-      checkIn: bookingPayload.checkIn,
-      checkOut: bookingPayload.checkOut,
-      roomTypeCode: bookingPayload.room?.roomTypeCode,
-      ratePlanCode: bookingPayload.rateCode,
-      adults: bookingPayload.adults,
-      children: bookingPayload.children,
-      guest: {
-        firstName: bookingPayload.mainContact?.firstName,
-        lastName: bookingPayload.mainContact?.lastName,
-        email: bookingPayload.mainContact?.email,
-        phone: bookingPayload.mainContact?.phone || ''
-      },
-      payment: {
-        cardNumber: data.cardNumber,
-        cardHolder: data.cardHolder,
-        expiryMonth: data.expiryMonth,
-        expiryYear: data.expiryYear,
-        cvv: data.cvv
-      },
-      amountBeforeTax: bookingPayload.selectedRate?.amountBeforeTax || 0,
-      promoCode: bookingPayload.promoCode || undefined,
-      specialRequests: undefined,
-    };
-
-    const response = await fetch('/api/reservation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.details || errorData.error || 'Failed to create reservation');
-    }
-
-    const responseData = await response.json();
-
-    const iframeHtml = responseData.data;
-
-    // Verificar si la respuesta es válida
-    const htmlContent = iframeHtml;
-    
-    if (!htmlContent || htmlContent.trim() === "") {
-      bookingStore.setLoading(false);
-      bookingStore.setError("Error al validar tu pago");
-      return;
-    }
-
-    // Sanitizar el HTML
-    const sanitizedHtml = DOMPurify.sanitize(htmlContent, {
-      ADD_TAGS: ["script", "form", "input"],
-      ADD_ATTR: ["onclick", "action", "method", "name", "type", "value", "id"],
-    });
-
-    // Guardar el HTML y mostrar el contenedor
-    paymentHtmlContent = sanitizedHtml;
-    showPaymentHtml = true;
-    bookingStore.setLoading(false);
-
-    // Esperar a que el DOM se actualice antes de inyectar scripts
-    await tick();
-    
-    // Buscar el contenedor por ID
-    const container = document.getElementById("html-container") as HTMLDivElement;
-    
-    if (!container) {
-      console.error("No se encontró el contenedor html-container");
-      bookingStore.setError("Error al mostrar el formulario de pago");
-      bookingStore.setLoading(false);
-      return;
-    }
-
-    // Inyectar el HTML
-    container.innerHTML = sanitizedHtml;
-
-    // Ejecutar scripts dentro del HTML
-    container.querySelectorAll("script").forEach((oldScript: HTMLScriptElement) => {
-      const newScript = document.createElement("script");
-      Array.from(oldScript.attributes).forEach((attr: Attr) => {
-        newScript.setAttribute(attr.name, attr.value);
-      });
-      newScript.appendChild(document.createTextNode(oldScript.innerHTML));
-      oldScript.parentNode?.replaceChild(newScript, oldScript);
-    });
-
-    // Scroll al contenedor
-    setTimeout(() => {
-      container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 100);
-
-
-		/*try {
-			// Track payment completion attempt
-			trackEvent('payment_completed', {
-				amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax
-			});
-
-			// Get complete booking data from store
-			const bookingPayload = $completeBookingData;
-
-			console.log('📤 Sending reservation to API:', bookingPayload);
-
-			// Create reservation in Opera PMS
-			
-
-		const result = await response.json();
-
-		console.log('✅ Reservation created:', result);
-
-		// Update confirmation with Opera PMS response
-		if (result.confirmationNumber && result.reservationId) {
-			bookingStore.setConfirmation(result.confirmationNumber, result.reservationId);
-			console.log('📋 Updated booking store with:', {
-				confirmationNumber: result.confirmationNumber,
-				reservationId: result.reservationId
-			});
-		}
-
-		// Track successful booking
-		trackEvent('booking_confirmed', {
-			confirmationNumber: result.confirmationNumber,
-			reservationId: result.reservationId,
-			amount: $bookingStore.selectedRoom?.rates[$bookingStore.selectedRateIndex].amountAfterTax,
-			roomType: $bookingStore.selectedRoom?.roomTypeCode,
-			nights: $nights
-		});
-
-			// Go to confirmation page
-			bookingStore.goToStep('confirmation');
-			
-			// Force scroll to absolute top for confirmation page
-			scrollToTopInstant();
-			setTimeout(() => scrollToTop(0), 50);
-
-		} catch (error) {
-			console.error('❌ Reservation error:', error);
-			
-			// Track error
-			trackEvent('booking_error', {
-				step: 'payment',
-				error: error instanceof Error ? error.message : 'Unknown error'
-			});
-
-			// Show error to user
-			bookingStore.setError(
-				error instanceof Error 
-					? `Failed to create reservation: ${error.message}` 
-					: 'Failed to create reservation. Please try again.'
-			);
-		} finally {
-			bookingStore.setLoading(false);
-		}*/
 	}
 
 	function goBackToSearch() {
@@ -498,6 +564,7 @@
 			checkOut={$bookingStore.checkOut}
 			nights={$nights}
 			selectedRate={$bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex]}
+			loading={$bookingStore.loading}
 			onSubmit={handleGuestDetails}
 			onBack={goBackToSelection}
 		/>
@@ -506,24 +573,41 @@
 
 <!-- Step 4: Payment -->
 {#if $bookingStore.currentStep === 'payment' && $bookingStore.selectedRoom && $bookingStore.guests.length > 0}
-	{#if showPaymentHtml}
-		<div class="step-content payment-step" id="payment-form" in:fly={{ y: 20, duration: 300 }}>
-			<div class="payment-html-wrapper">
-				<h2 class="payment-header">Procesando Pago</h2>
-				<p class="payment-description">Por favor complete el formulario de pago a continuación</p>
-				<div class="payment-html-container" id="html-container"></div>
+	<div class="step-content payment-step" id="payment-form" in:fly={{ y: 20, duration: 300 }}>
+		{#if $bookingStore.error}
+			<div class="payment-error-banner" in:fly={{ y: -10, duration: 300 }}>
+				<div class="payment-error-icon">
+					<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<circle cx="12" cy="12" r="10"/>
+						<line x1="15" y1="9" x2="9" y2="15"/>
+						<line x1="9" y1="9" x2="15" y2="15"/>
+					</svg>
+				</div>
+				<div class="payment-error-content">
+					<strong>Payment could not be processed</strong>
+					<p>{$bookingStore.error}</p>
+				</div>
+				<button class="payment-error-dismiss" onclick={() => bookingStore.clearError()} aria-label="Dismiss error">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<line x1="18" y1="6" x2="6" y2="18"/>
+						<line x1="6" y1="6" x2="18" y2="18"/>
+					</svg>
+				</button>
 			</div>
+		{/if}
+		<div class="payment-html-wrapper">
+			<button class="back-button" onclick={goBackToDetails}>
+				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M19 12H5M12 19l-7-7 7-7"/>
+				</svg>
+				Back
+			</button>
+			<h2 class="payment-header">Complete Payment</h2>
+			<p class="payment-description">Please complete the payment form below</p>
+			<div class="payment-uc-selection" id="uc-payment-selection"></div>
+			<div class="payment-html-container" id="html-container"></div>
 		</div>
-	{:else}
-		<div class="step-content payment-step" id="payment-form" in:fly={{ y: 20, duration: 300 }}>
-			<PaymentForm
-				amount={$bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex].amountAfterTax}
-				currency="USD"
-				onSubmit={handlePayment}
-				onBack={goBackToDetails}
-			/>
-		</div>
-	{/if}
+	</div>
 {/if}
 
 <!-- Step 5: Confirmation -->
@@ -843,11 +927,78 @@
 		}
 	}
 
+	.payment-error-banner {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.875rem;
+		max-width: 600px;
+		margin: 0 auto 1.5rem;
+		padding: 1rem 1.25rem;
+		background: #fef2f2;
+		border: 1.5px solid #fca5a5;
+		border-radius: 12px;
+		box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+	}
+
+	.payment-error-icon {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 40px;
+		height: 40px;
+		background: #fee2e2;
+		border-radius: 50%;
+		color: #dc2626;
+	}
+
+	.payment-error-content {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.payment-error-content strong {
+		display: block;
+		font-size: 0.9375rem;
+		font-weight: 700;
+		color: #991b1b;
+		margin-bottom: 0.25rem;
+	}
+
+	.payment-error-content p {
+		font-size: 0.875rem;
+		color: #b91c1c;
+		margin: 0;
+		line-height: 1.5;
+		word-break: break-word;
+	}
+
+	.payment-error-dismiss {
+		flex-shrink: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		background: transparent;
+		border: none;
+		border-radius: 8px;
+		color: #dc2626;
+		cursor: pointer;
+		transition: background 0.2s;
+		padding: 0;
+	}
+
+	.payment-error-dismiss:hover {
+		background: #fee2e2;
+	}
+
 	.payment-html-wrapper {
 		background: white;
 		border-radius: 16px;
 		padding: 2rem;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+		overflow: visible;
 	}
 
 	.payment-header {
@@ -865,24 +1016,44 @@
 		margin-bottom: 1.5rem;
 	}
 
+	.payment-uc-selection {
+		width: 100%;
+		min-height: 80px;
+		margin-bottom: 1rem;
+		overflow: visible;
+	}
+
 	.payment-html-container {
 		width: 100%;
-		min-height: 500px;
+		min-height: 650px;
 		border: 1px solid #e5e7eb;
 		border-radius: 8px;
-		background: white;
+		background: #fff;
 		padding: 1rem;
+		overflow: visible;
+	}
+
+	.payment-html-container :global(iframe) {
+		display: block !important;
+		width: 100% !important;
+		min-height: 620px !important;
+		border: 0;
 	}
 
 	@media (max-width: 768px) {
 		.payment-html-wrapper {
-			padding: 1.5rem;
+			padding: 1rem;
 		}
 
 		.payment-html-container {
-			min-height: 400px;
+			min-height: 550px;
 			padding: 0.5rem;
 		}
+
+		.payment-html-container :global(iframe) {
+			min-height: 520px !important;
+		}
+
 	}
 </style>
 

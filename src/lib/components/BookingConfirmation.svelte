@@ -148,6 +148,35 @@
 			</ul>
 		</div>
 
+		<!-- Travel CTA -->
+		<div class="travel-cta">
+			<div class="travel-cta-header">
+				<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<circle cx="12" cy="12" r="10"/>
+					<path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+				</svg>
+				<h4>Book Your Flight or Ferry</h4>
+			</div>
+			<p class="travel-cta-subtitle">Get to Roatán — choose the option that works best for you</p>
+			<div class="travel-cta-buttons">
+				<a href="https://www.cmairlines.com/en" target="_blank" rel="noopener noreferrer" class="travel-btn travel-btn-flight">
+					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M17.8 19.2L16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>
+					</svg>
+					<span>Book a Flight</span>
+				</a>
+				<a href="https://obe.roatanferry.com/" target="_blank" rel="noopener noreferrer" class="travel-btn travel-btn-ferry">
+					<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1 .6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>
+						<path d="M19.38 20A11.6 11.6 0 0 0 21 14l-9-4-9 4c0 2.9.94 5.34 2.81 7.76"/>
+						<path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/>
+						<path d="M12 1v4"/>
+					</svg>
+					<span>Book a Ferry</span>
+				</a>
+			</div>
+		</div>
+
 		<!-- Actions -->
 		<div class="actions">
 			<Button variant="primary" onclick={() => window.print()}>
@@ -441,6 +470,85 @@
 		margin-top: 2px;
 	}
 
+	/* Travel CTA */
+	.travel-cta {
+		background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 50%, #f0fdf4 100%);
+		border: 2px solid #bae6fd;
+		border-radius: 16px;
+		padding: 1.75rem;
+		margin-bottom: 2rem;
+		text-align: center;
+	}
+
+	.travel-cta-header {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.625rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.travel-cta-header svg {
+		color: var(--color-secondary);
+	}
+
+	.travel-cta-header h4 {
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: var(--color-primary);
+		margin: 0;
+	}
+
+	.travel-cta-subtitle {
+		font-size: 0.9375rem;
+		color: #6b7280;
+		margin: 0 0 1.5rem 0;
+	}
+
+	.travel-cta-buttons {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1rem;
+	}
+
+	.travel-btn {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.625rem;
+		padding: 0.875rem 1.25rem;
+		border-radius: 12px;
+		font-size: 1rem;
+		font-weight: 600;
+		text-decoration: none;
+		cursor: pointer;
+		transition: all 0.25s ease;
+		border: 2px solid transparent;
+	}
+
+	.travel-btn-flight {
+		background: var(--color-primary);
+		color: white;
+	}
+
+	.travel-btn-flight:hover {
+		background: #0f2740;
+		transform: translateY(-2px);
+		box-shadow: 0 8px 20px rgba(24, 52, 83, 0.25);
+	}
+
+	.travel-btn-ferry {
+		background: white;
+		color: var(--color-primary);
+		border-color: var(--color-secondary);
+	}
+
+	.travel-btn-ferry:hover {
+		background: rgba(197, 165, 111, 0.08);
+		transform: translateY(-2px);
+		box-shadow: 0 8px 20px rgba(197, 165, 111, 0.2);
+	}
+
 	.actions {
 		display: grid;
 		grid-template-columns: 1fr;
@@ -474,6 +582,14 @@
 
 		.inclusions-grid {
 			grid-template-columns: 1fr;
+		}
+
+		.travel-cta-buttons {
+			grid-template-columns: 1fr;
+		}
+
+		.travel-cta {
+			padding: 1.25rem;
 		}
 	}
 </style>
