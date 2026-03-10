@@ -1213,13 +1213,26 @@
 
 	.payment-uc-selection {
 		width: 100%;
+		min-height: 80px;
+		margin-bottom: 1rem;
 		overflow: visible;
 	}
 
 	.payment-html-container {
 		width: 100%;
-		min-height: 600px;
+		min-height: 650px;
+		border: 1px solid #e5e7eb;
+		border-radius: 8px;
+		background: #fff;
+		padding: 1rem;
 		overflow: visible;
+	}
+
+	.payment-html-container :global(iframe) {
+		display: block !important;
+		width: 100% !important;
+		min-height: 620px !important;
+		border: 0;
 	}
 
 	@media (max-width: 768px) {
@@ -1236,7 +1249,12 @@
 		}
 
 		.payment-html-container {
-			min-height: 520px;
+			min-height: 550px;
+			padding: 0.5rem;
+		}
+
+		.payment-html-container :global(iframe) {
+			min-height: 520px !important;
 		}
 
 		.pst-amount {
