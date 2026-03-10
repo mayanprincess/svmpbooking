@@ -30,7 +30,6 @@
 	let unifiedCheckoutLaunched = $state(false);
 	let paymentResetTrigger = $state(0);
 	let ucPaymentsRef = $state<any>(null);
-	let ucFormReady = $state(false);
 
 	// Local state for form inputs (will sync with store)
 	let checkIn = $state('');
@@ -217,8 +216,6 @@
 			return;
 		}
 
-		ucFormReady = false;
-
 		try {
 			await loadUnifiedCheckoutScript(scriptUrl, ucScriptIntegrity);
 
@@ -239,20 +236,7 @@
 				}
 			};
 
-			const ucObserver = new MutationObserver(() => {
-				const container = document.getElementById('html-container');
-				if (container && (container.querySelector('iframe') || container.children.length > 0)) {
-					ucFormReady = true;
-					ucObserver.disconnect();
-				}
-			});
-			const htmlContainer = document.getElementById('html-container');
-			if (htmlContainer) {
-				ucObserver.observe(htmlContainer, { childList: true, subtree: true });
-			}
-
 			const showResult = await up.show(showArgs);
-			ucObserver.disconnect();
 
 			const completeResponse = await up.complete(showResult);
 			const decodedResponse = typeof completeResponse === 'string'
@@ -321,7 +305,6 @@
 		ucScriptIntegrity = null;
 		unifiedCheckoutLaunched = false;
 		ucPaymentsRef = null;
-		ucFormReady = false;
 
 		// Volver a pedir capture context (genera nuevo token + relanza UC)
 		await requestCaptureContextFromReservation();
