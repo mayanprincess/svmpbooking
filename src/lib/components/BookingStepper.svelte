@@ -16,8 +16,8 @@
 	import Button from './shared/Button.svelte';
 	import type { EnrichedRoomAvailability } from '$lib/types/opera';
 	import { bookingStore, nights, completeBookingData } from '$lib/stores';
-	import { pluralize } from '$lib/utils/formatting';
-	import { formatLocalDate } from '$lib/utils/date-helpers';
+	import { pluralize, formatCurrency } from '$lib/utils/formatting';
+	import { formatLocalDate, formatLocalDateShort } from '$lib/utils/date-helpers';
 	import { scrollToElement, scrollToTop, scrollToTopInstant } from '$lib/utils/scroll';
 	import { trackEvent } from '$lib/services/analytics';
 
@@ -30,6 +30,7 @@
 	let unifiedCheckoutLaunched = $state(false);
 	let paymentResetTrigger = $state(0);
 	let ucPaymentsRef = $state<any>(null);
+	let ucFormReady = $state(false);
 
 	// Local state for form inputs (will sync with store)
 	let checkIn = $state('');
@@ -216,6 +217,8 @@
 			return;
 		}
 
+		ucFormReady = false;
+
 		try {
 			await loadUnifiedCheckoutScript(scriptUrl, ucScriptIntegrity);
 
@@ -236,7 +239,20 @@
 				}
 			};
 
+			const ucObserver = new MutationObserver(() => {
+				const container = document.getElementById('html-container');
+				if (container && (container.querySelector('iframe') || container.children.length > 0)) {
+					ucFormReady = true;
+					ucObserver.disconnect();
+				}
+			});
+			const htmlContainer = document.getElementById('html-container');
+			if (htmlContainer) {
+				ucObserver.observe(htmlContainer, { childList: true, subtree: true });
+			}
+
 			const showResult = await up.show(showArgs);
+			ucObserver.disconnect();
 
 			const completeResponse = await up.complete(showResult);
 			const decodedResponse = typeof completeResponse === 'string'
@@ -305,6 +321,7 @@
 		ucScriptIntegrity = null;
 		unifiedCheckoutLaunched = false;
 		ucPaymentsRef = null;
+		ucFormReady = false;
 
 		// Volver a pedir capture context (genera nuevo token + relanza UC)
 		await requestCaptureContextFromReservation();
@@ -443,14 +460,9 @@
 			<div class="step-label">Select</div>
 		</div>
 		<div class="step-line" class:active={['details', 'payment', 'confirmation'].includes($bookingStore.currentStep)}></div>
-		<div class="step" class:active={$bookingStore.currentStep === 'details'} class:completed={['payment', 'confirmation'].includes($bookingStore.currentStep)}>
+		<div class="step" class:active={['details', 'payment'].includes($bookingStore.currentStep)} class:completed={['confirmation'].includes($bookingStore.currentStep)}>
 			<div class="step-number">3</div>
-			<div class="step-label">Details</div>
-		</div>
-		<div class="step-line" class:active={['payment', 'confirmation'].includes($bookingStore.currentStep)}></div>
-		<div class="step" class:active={$bookingStore.currentStep === 'payment'} class:completed={['confirmation'].includes($bookingStore.currentStep)}>
-			<div class="step-number">4</div>
-			<div class="step-label">Payment</div>
+			<div class="step-label">Checkout</div>
 		</div>
 	</div>
 {/if}
@@ -571,7 +583,7 @@
 	</div>
 {/if}
 
-<!-- Step 4: Payment -->
+<!-- Step 4: Payment (visually part of Checkout step) -->
 {#if $bookingStore.currentStep === 'payment' && $bookingStore.selectedRoom && $bookingStore.guests.length > 0}
 	<div class="step-content payment-step" id="payment-form" in:fly={{ y: 20, duration: 300 }}>
 		{#if $bookingStore.error}
@@ -595,17 +607,64 @@
 				</button>
 			</div>
 		{/if}
+
+		<!-- Compact Reservation Summary -->
+		<div class="payment-summary-card">
+			<div class="payment-summary-top">
+				<h3 class="payment-summary-title">Reservation Summary</h3>
+				<button class="edit-details-link" onclick={goBackToDetails}>
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+						<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+						<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+					</svg>
+					Edit
+				</button>
+			</div>
+			<div class="payment-summary-grid">
+				<div class="payment-summary-item">
+					<span class="psi-label">Room</span>
+					<span class="psi-value">{$bookingStore.selectedRoom.roomTypeName.en}</span>
+				</div>
+				<div class="payment-summary-item">
+					<span class="psi-label">Dates</span>
+					<span class="psi-value">{formatLocalDateShort($bookingStore.checkIn)} — {formatLocalDateShort($bookingStore.checkOut)} · {$nights} {pluralize($nights, 'night', 'nights')}</span>
+				</div>
+				<div class="payment-summary-item">
+					<span class="psi-label">Guest</span>
+					<span class="psi-value">{$bookingStore.guests[0]?.firstName} {$bookingStore.guests[0]?.lastName}</span>
+				</div>
+				<div class="payment-summary-item">
+					<span class="psi-label">Guests</span>
+					<span class="psi-value">{$bookingStore.adults} {pluralize($bookingStore.adults, 'Adult', 'Adults')}{$bookingStore.children > 0 ? `, ${$bookingStore.children} ${pluralize($bookingStore.children, 'Child', 'Children')}` : ''}</span>
+				</div>
+			</div>
+			<div class="payment-summary-total-row">
+				<span class="pst-label">Total</span>
+				<span class="pst-amount">{formatCurrency($bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex].amountAfterTax)}</span>
+			</div>
+		</div>
+
+		<!-- Payment Form -->
 		<div class="payment-html-wrapper">
-			<button class="back-button" onclick={goBackToDetails}>
-				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M19 12H5M12 19l-7-7 7-7"/>
+			<div class="payment-secure-badge">
+				<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+					<path d="M7 11V7a5 5 0 0 1 10 0v4"/>
 				</svg>
-				Back
-			</button>
-			<h2 class="payment-header">Complete Payment</h2>
-			<p class="payment-description">Please complete the payment form below</p>
-			<div class="payment-uc-selection" id="uc-payment-selection"></div>
-			<div class="payment-html-container" id="html-container"></div>
+				Secure payment powered by CyberSource
+			</div>
+
+			{#if !ucFormReady}
+				<div class="uc-loading-overlay">
+					<div class="uc-loading-spinner"></div>
+					<p class="uc-loading-text">Loading payment form...</p>
+				</div>
+			{/if}
+
+			<div class="payment-uc-containers" class:uc-hidden={!ucFormReady}>
+				<div class="payment-uc-selection" id="uc-payment-selection"></div>
+				<div class="payment-html-container" id="html-container"></div>
+			</div>
 		</div>
 	</div>
 {/if}
@@ -993,67 +1052,213 @@
 		background: #fee2e2;
 	}
 
+	/* Payment Summary Card */
+	.payment-summary-card {
+		background: linear-gradient(135deg, rgba(24, 52, 83, 0.03) 0%, rgba(197, 165, 111, 0.06) 100%);
+		border: 1.5px solid rgba(197, 165, 111, 0.25);
+		border-radius: 14px;
+		padding: 1.25rem 1.5rem;
+		margin-bottom: 1.25rem;
+	}
+
+	.payment-summary-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 1rem;
+	}
+
+	.payment-summary-title {
+		font-size: 1rem;
+		font-weight: 700;
+		color: var(--color-primary);
+		margin: 0;
+	}
+
+	.edit-details-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.35rem;
+		padding: 0.35rem 0.75rem;
+		background: transparent;
+		border: 1px solid #d1d5db;
+		border-radius: 6px;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: #6b7280;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.edit-details-link:hover {
+		border-color: var(--color-secondary);
+		color: var(--color-primary);
+		background: rgba(197, 165, 111, 0.05);
+	}
+
+	.payment-summary-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.75rem;
+	}
+
+	.payment-summary-item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+	}
+
+	.psi-label {
+		font-size: 0.6875rem;
+		font-weight: 600;
+		color: #9ca3af;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.psi-value {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: var(--color-primary);
+	}
+
+	.payment-summary-total-row {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1.5px solid rgba(197, 165, 111, 0.2);
+	}
+
+	.pst-label {
+		font-size: 0.875rem;
+		font-weight: 600;
+		color: #6b7280;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.pst-amount {
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: var(--color-secondary);
+	}
+
+	/* Payment Form Wrapper */
 	.payment-html-wrapper {
 		background: white;
 		border-radius: 16px;
-		padding: 2rem;
+		padding: 1.25rem 1.5rem;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 		overflow: visible;
 	}
 
-	.payment-header {
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: var(--color-primary);
-		margin-bottom: 0.5rem;
-		text-align: center;
+	.payment-secure-badge {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 0.5rem;
+		font-size: 0.8125rem;
+		font-weight: 500;
+		color: #6b7280;
+		margin-bottom: 0.75rem;
+		padding: 0.4rem 0.75rem;
+		background: #f9fafb;
+		border-radius: 8px;
 	}
 
-	.payment-description {
-		font-size: 0.9375rem;
-		color: #6b7280;
-		text-align: center;
-		margin-bottom: 1.5rem;
+	.payment-secure-badge svg {
+		color: #10b981;
+	}
+
+	/* UC Loading Spinner */
+	.uc-loading-overlay {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 1rem;
+		padding: 4rem 1rem;
+	}
+
+	.uc-loading-spinner {
+		width: 36px;
+		height: 36px;
+		border: 3px solid rgba(197, 165, 111, 0.25);
+		border-top-color: var(--color-secondary);
+		border-radius: 50%;
+		animation: uc-spin 0.7s linear infinite;
+	}
+
+	@keyframes uc-spin {
+		to { transform: rotate(360deg); }
+	}
+
+	.uc-loading-text {
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: #9ca3af;
+		margin: 0;
+	}
+
+	/* UC containers visibility */
+	.payment-uc-containers {
+		overflow: visible;
+	}
+
+	.payment-uc-containers.uc-hidden {
+		height: 0;
+		overflow: hidden;
+		opacity: 0;
+		position: absolute;
+		pointer-events: none;
 	}
 
 	.payment-uc-selection {
 		width: 100%;
-		min-height: 80px;
-		margin-bottom: 1rem;
+		min-height: 40px;
 		overflow: visible;
 	}
 
 	.payment-html-container {
 		width: 100%;
-		min-height: 650px;
-		border: 1px solid #e5e7eb;
-		border-radius: 8px;
+		min-height: 600px;
 		background: #fff;
-		padding: 1rem;
 		overflow: visible;
 	}
 
 	.payment-html-container :global(iframe) {
 		display: block !important;
 		width: 100% !important;
-		min-height: 620px !important;
+		min-height: 580px !important;
 		border: 0;
 	}
 
 	@media (max-width: 768px) {
+		.payment-summary-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.payment-summary-card {
+			padding: 1rem;
+		}
+
 		.payment-html-wrapper {
 			padding: 1rem;
 		}
 
 		.payment-html-container {
-			min-height: 550px;
-			padding: 0.5rem;
+			min-height: 520px;
 		}
 
 		.payment-html-container :global(iframe) {
-			min-height: 520px !important;
+			min-height: 500px !important;
 		}
 
+		.pst-amount {
+			font-size: 1.25rem;
+		}
 	}
 </style>
 
