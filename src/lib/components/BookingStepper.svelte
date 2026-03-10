@@ -654,14 +654,13 @@
 				Secure payment powered by CyberSource
 			</div>
 
-			{#if !ucFormReady}
-				<div class="uc-loading-overlay">
-					<div class="uc-loading-spinner"></div>
-					<p class="uc-loading-text">Loading payment form...</p>
-				</div>
-			{/if}
-
-			<div class="payment-uc-containers" class:uc-hidden={!ucFormReady}>
+			<div class="payment-uc-area">
+				{#if !ucFormReady}
+					<div class="uc-loading-overlay">
+						<div class="uc-loading-spinner"></div>
+						<p class="uc-loading-text">Loading payment form...</p>
+					</div>
+				{/if}
 				<div class="payment-uc-selection" id="uc-payment-selection"></div>
 				<div class="payment-html-container" id="html-container"></div>
 			</div>
@@ -1172,14 +1171,24 @@
 		color: #10b981;
 	}
 
-	/* UC Loading Spinner */
+	/* UC area with overlay spinner */
+	.payment-uc-area {
+		position: relative;
+		overflow: visible;
+	}
+
 	.uc-loading-overlay {
+		position: absolute;
+		inset: 0;
+		z-index: 10;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		justify-content: center;
 		gap: 1rem;
 		padding: 4rem 1rem;
+		background: white;
+		border-radius: 8px;
 	}
 
 	.uc-loading-spinner {
@@ -1202,37 +1211,15 @@
 		margin: 0;
 	}
 
-	/* UC containers visibility */
-	.payment-uc-containers {
-		overflow: visible;
-	}
-
-	.payment-uc-containers.uc-hidden {
-		height: 0;
-		overflow: hidden;
-		opacity: 0;
-		position: absolute;
-		pointer-events: none;
-	}
-
 	.payment-uc-selection {
 		width: 100%;
-		min-height: 40px;
 		overflow: visible;
 	}
 
 	.payment-html-container {
 		width: 100%;
 		min-height: 600px;
-		background: #fff;
 		overflow: visible;
-	}
-
-	.payment-html-container :global(iframe) {
-		display: block !important;
-		width: 100% !important;
-		min-height: 580px !important;
-		border: 0;
 	}
 
 	@media (max-width: 768px) {
@@ -1250,10 +1237,6 @@
 
 		.payment-html-container {
 			min-height: 520px;
-		}
-
-		.payment-html-container :global(iframe) {
-			min-height: 500px !important;
 		}
 
 		.pst-amount {
