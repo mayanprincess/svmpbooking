@@ -653,17 +653,8 @@
 				</svg>
 				Secure payment powered by CyberSource
 			</div>
-
-			<div class="payment-uc-area">
-				{#if !ucFormReady}
-					<div class="uc-loading-overlay">
-						<div class="uc-loading-spinner"></div>
-						<p class="uc-loading-text">Loading payment form...</p>
-					</div>
-				{/if}
-				<div class="payment-uc-selection" id="uc-payment-selection"></div>
-				<div class="payment-html-container" id="html-container"></div>
-			</div>
+			<div class="payment-uc-selection" id="uc-payment-selection"></div>
+			<div class="payment-html-container" id="html-container"></div>
 		</div>
 	</div>
 {/if}
@@ -1148,7 +1139,7 @@
 	.payment-html-wrapper {
 		background: white;
 		border-radius: 16px;
-		padding: 1.25rem 1.5rem;
+		padding: 2rem;
 		box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 		overflow: visible;
 	}
@@ -1161,7 +1152,7 @@
 		font-size: 0.8125rem;
 		font-weight: 500;
 		color: #6b7280;
-		margin-bottom: 0.75rem;
+		margin-bottom: 1.5rem;
 		padding: 0.4rem 0.75rem;
 		background: #f9fafb;
 		border-radius: 8px;
@@ -1169,46 +1160,6 @@
 
 	.payment-secure-badge svg {
 		color: #10b981;
-	}
-
-	/* UC area with overlay spinner */
-	.payment-uc-area {
-		position: relative;
-		overflow: visible;
-	}
-
-	.uc-loading-overlay {
-		position: absolute;
-		inset: 0;
-		z-index: 10;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		justify-content: center;
-		gap: 1rem;
-		padding: 4rem 1rem;
-		background: white;
-		border-radius: 8px;
-	}
-
-	.uc-loading-spinner {
-		width: 36px;
-		height: 36px;
-		border: 3px solid rgba(197, 165, 111, 0.25);
-		border-top-color: var(--color-secondary);
-		border-radius: 50%;
-		animation: uc-spin 0.7s linear infinite;
-	}
-
-	@keyframes uc-spin {
-		to { transform: rotate(360deg); }
-	}
-
-	.uc-loading-text {
-		font-size: 0.875rem;
-		font-weight: 500;
-		color: #9ca3af;
-		margin: 0;
 	}
 
 	.payment-uc-selection {
