@@ -443,9 +443,14 @@
 			<div class="step-label">Select</div>
 		</div>
 		<div class="step-line" class:active={['details', 'payment', 'confirmation'].includes($bookingStore.currentStep)}></div>
-		<div class="step" class:active={['details', 'payment'].includes($bookingStore.currentStep)} class:completed={['confirmation'].includes($bookingStore.currentStep)}>
+		<div class="step" class:active={$bookingStore.currentStep === 'details'} class:completed={['payment', 'confirmation'].includes($bookingStore.currentStep)}>
 			<div class="step-number">3</div>
-			<div class="step-label">Checkout</div>
+			<div class="step-label">Details</div>
+		</div>
+		<div class="step-line" class:active={['payment', 'confirmation'].includes($bookingStore.currentStep)}></div>
+		<div class="step" class:active={$bookingStore.currentStep === 'payment'} class:completed={['confirmation'].includes($bookingStore.currentStep)}>
+			<div class="step-number">4</div>
+			<div class="step-label">Payment</div>
 		</div>
 	</div>
 {/if}
