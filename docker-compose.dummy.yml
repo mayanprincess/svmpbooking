@@ -1,0 +1,26 @@
+# Dummy / smoke deploy: build local image and run like prod (no real OPERA/backend).
+# Usage:
+#   docker compose -f docker-compose.dummy.yml up --build
+# Open http://localhost:3000 — static UI works; /api/availability will fail against fake OPERA.
+#
+services:
+  svmpbooking:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      HOST: "0.0.0.0"
+      PORT: "3000"
+      # Backend proxy (dummy — reservation/payment routes will error if hit)
+      BACKEND_URL: "https://backend.invalid"
+      # Satisfy validateOperaConfig; real calls to OPERA will fail
+      OPERA_GATEWAY_URL: "https://opera-gateway.invalid"
+      OPERA_ENTERPRISE_ID: "DUMMY"
+      OPERA_HOTEL_ID: "DUMMY"
+      OPERA_CLIENT_ID: "dummy-client"
+      OPERA_CLIENT_SECRET: "dummy-secret"
+      OPERA_APP_KEY: "00000000-0000-0000-0000-000000000000"
+      OPERA_SCOPE: "urn:dummy:scope"
