@@ -58,6 +58,10 @@ export const POST: RequestHandler = async ({ request }) => {
     console.log(reservationRequest);
 
 		// Call OPERA API
+		if (!config.backendUrl) {
+			throw error(500, 'BACKEND_URL is not configured');
+		}
+
 		const response = await fetch(`${config.backendUrl}/reservations`, {
 			method: 'POST',
 			headers: {
@@ -66,11 +70,28 @@ export const POST: RequestHandler = async ({ request }) => {
 			body: JSON.stringify(reservationRequest)
 		});
 
-		const data = await response.json();
+		const data = await response.json().catch(() => ({}));
+
+		if (!response.ok) {
+			const message =
+				(typeof data === 'object' &&
+					data !== null &&
+					'detail' in data &&
+					typeof (data as { detail?: unknown }).detail === 'string' &&
+					(data as { detail: string }).detail) ||
+				(typeof data === 'object' &&
+					data !== null &&
+					'message' in data &&
+					typeof (data as { message?: unknown }).message === 'string' &&
+					(data as { message: string }).message) ||
+				`Backend error (${response.status})`;
+
+			throw error(response.status >= 400 && response.status < 600 ? response.status : 502, message);
+		}
 
 		return json({
 			success: true,
-			data: data
+			data
 		});
 	} catch (err) {
 		console.error('Reservation API error:', err);

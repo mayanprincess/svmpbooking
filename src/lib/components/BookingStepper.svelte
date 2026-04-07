@@ -343,8 +343,13 @@
 			});
 
 			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(errorData.details || errorData.error || 'Error al crear la reserva');
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(
+					errorData.message ||
+						errorData.details ||
+						errorData.error ||
+						'Error al crear la reserva'
+				);
 			}
 
 		const result = await response.json();
