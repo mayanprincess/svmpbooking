@@ -5,11 +5,12 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { operaClient } from '$lib/services/opera-client';
+import { getOperaClient } from '$lib/services/opera-client';
 
 export const GET: RequestHandler = async () => {
 	try {
-		const hotelId = (operaClient as any).hotelId;
+		const client = getOperaClient();
+		const hotelId = (client as any).hotelId;
 		
 		console.log('🔍 Fetching guarantee codes from Opera PMS...', { hotelId });
 
@@ -19,7 +20,7 @@ export const GET: RequestHandler = async () => {
 		
 		console.log('📡 Calling endpoint:', endpoint);
 		
-		const response = await (operaClient as any).authorizedRequest(endpoint, {
+		const response = await (client as any).authorizedRequest(endpoint, {
 			method: 'GET'
 		});
 

@@ -5,7 +5,7 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { operaClient } from '$lib/services/opera-client';
+import { getOperaClient } from '$lib/services/opera-client';
 import { enrichAvailability } from '$lib/services/availability-service';
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -61,7 +61,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		}
 
 		// Call OPERA API
-		const operaResponse = await operaClient.checkAvailability({
+		const operaResponse = await getOperaClient().checkAvailability({
 			checkIn,
 			checkOut,
 			adults: adultsCount,

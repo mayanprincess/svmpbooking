@@ -5,8 +5,6 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { operaClient } from '$lib/services/opera-client';
-import type { ReservationRequest } from '$lib/types/opera';
 import { config } from '$lib/config/config';
 
 export const POST: RequestHandler = async ({ request }) => {

@@ -632,7 +632,15 @@ export class OperaClient {
 }
 
 /**
- * Singleton instance
+ * Lazy singleton — avoids validating env / constructing during `vite build`
+ * (SvelteKit analyses server modules without runtime secrets).
  */
-export const operaClient = new OperaClient();
+let operaClientSingleton: OperaClient | null = null;
+
+export function getOperaClient(): OperaClient {
+	if (!operaClientSingleton) {
+		operaClientSingleton = new OperaClient();
+	}
+	return operaClientSingleton;
+}
 

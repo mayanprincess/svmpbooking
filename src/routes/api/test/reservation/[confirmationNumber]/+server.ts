@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { operaClient } from '$lib/services/opera-client';
+import { getOperaClient } from '$lib/services/opera-client';
 
 /**
  * Test endpoint to verify reservation in Opera PMS
@@ -18,11 +18,11 @@ export const GET: RequestHandler = async ({ params, url }) => {
 		if (searchById) {
 			// Search by Reservation ID (more reliable)
 			console.log('📌 Searching by Reservation ID (direct method)');
-			data = await operaClient.getReservationById(confirmationNumber);
+			data = await getOperaClient().getReservationById(confirmationNumber);
 		} else {
 			// Search by Confirmation Number
 			console.log('📌 Searching by Confirmation Number (search method)');
-			data = await operaClient.getReservationByConfirmationNumber(confirmationNumber);
+			data = await getOperaClient().getReservationByConfirmationNumber(confirmationNumber);
 		}
 
 		return json({

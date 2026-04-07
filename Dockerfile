@@ -10,7 +10,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY . .
-RUN npm run build && npm prune --omit=dev
+# Ensure .svelte-kit/tsconfig.json exists (extends root tsconfig) before vite build
+RUN npx svelte-kit sync && npm run build && npm prune --omit=dev
 
 FROM node:22-alpine AS runner
 
