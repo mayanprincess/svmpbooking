@@ -4,7 +4,7 @@
 	 * Luxury design inspired by Booking.com, Expedia, and high-end hotels
 	 */
 
-	import DateRangeSelector from './DateRangeSelectorMobile.svelte';
+	import DateRangeSelector from './DateRangeSelectorResponsive.svelte';
 	import GuestSelector from './GuestSelector.svelte';
 	import PromoCodeInput from './PromoCodeInput.svelte';
 	import type { EnrichedRoomAvailability } from '$lib/types/opera';

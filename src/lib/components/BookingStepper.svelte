@@ -7,7 +7,7 @@
 
 	import { fly } from 'svelte/transition';
 	import { tick } from 'svelte';
-	import DateRangeSelector from './DateRangeSelectorMobile.svelte';
+	import DateRangeSelector from './DateRangeSelectorResponsive.svelte';
 	import GuestSelector from './GuestSelector.svelte';
 	import PromoCodeInput from './PromoCodeInput.svelte';
 	import RoomCardCompact from './RoomCardCompact.svelte';

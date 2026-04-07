@@ -46,6 +46,15 @@
 </script>
 
 <div class="date-range-mobile">
+	<p class="native-calendar-hint">
+		<svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+			<path
+				d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-8V6H9v6h2zm0 2v-1.5H9V12h2z"
+				fill="currentColor"
+			/>
+		</svg>
+		<span>Tap a date field to open your device calendar. Check-out must be after check-in.</span>
+	</p>
 	<!-- Check-in -->
 	<div class="date-field">
 		<label for="checkin-mobile" class="field-label">
@@ -141,6 +150,26 @@
 </div>
 
 <style>
+	.native-calendar-hint {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--spacing-sm);
+		margin: 0 0 var(--spacing-md);
+		padding: var(--spacing-sm) var(--spacing-md);
+		font-size: 0.8125rem;
+		line-height: 1.45;
+		color: var(--color-gray-dark);
+		background: color-mix(in srgb, var(--color-secondary) 8%, var(--color-white));
+		border: 1px solid color-mix(in srgb, var(--color-secondary) 22%, var(--color-gray-light));
+		border-radius: var(--radius-md);
+	}
+
+	.native-calendar-hint svg {
+		flex-shrink: 0;
+		margin-top: 0.1rem;
+		color: var(--color-secondary);
+	}
+
 	.date-range-mobile {
 		display: flex;
 		flex-direction: column;

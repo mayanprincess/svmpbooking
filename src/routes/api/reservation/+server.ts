@@ -7,6 +7,59 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { config } from '$lib/config/config';
 
+/** FastAPI / Starlette often use `detail` as string, array of {loc,msg}, or object */
+function messageFromBackendBody(status: number, data: unknown, rawText: string): string {
+	if (typeof data === 'object' && data !== null) {
+		const d = data as Record<string, unknown>;
+
+		if (typeof d._unparsed === 'string') {
+			const u = d._unparsed.trim();
+			if (u && !u.startsWith('<') && u.length < 800) {
+				return u;
+			}
+		}
+
+		if (typeof d.detail === 'string') {
+			return d.detail;
+		}
+
+		if (Array.isArray(d.detail)) {
+			const parts = d.detail.map((item: unknown) => {
+				if (typeof item === 'object' && item !== null && 'msg' in item) {
+					const msg = (item as { msg?: unknown }).msg;
+					const loc = (item as { loc?: unknown }).loc;
+					const prefix = Array.isArray(loc) ? `${loc.join('.')}: ` : '';
+					return typeof msg === 'string' ? `${prefix}${msg}` : JSON.stringify(item);
+				}
+				return typeof item === 'string' ? item : JSON.stringify(item);
+			});
+			return parts.join('; ');
+		}
+
+		if (typeof d.detail === 'object' && d.detail !== null) {
+			return JSON.stringify(d.detail);
+		}
+
+		if (typeof d.message === 'string') {
+			return d.message;
+		}
+		if (typeof d.error === 'string') {
+			return d.error;
+		}
+	}
+
+	const trimmed = rawText.trim();
+	if (trimmed && trimmed.length > 0 && trimmed.length < 800 && !trimmed.startsWith('<')) {
+		try {
+			JSON.parse(trimmed);
+		} catch {
+			return trimmed;
+		}
+	}
+
+	return `Backend error (${status})`;
+}
+
 export const POST: RequestHandler = async ({ request }) => {
 	try {
 		const body = await request.json();
@@ -70,23 +123,28 @@ export const POST: RequestHandler = async ({ request }) => {
 			body: JSON.stringify(reservationRequest)
 		});
 
-		const data = await response.json().catch(() => ({}));
+		const rawText = await response.text();
+		let data: unknown = {};
+		if (rawText) {
+			try {
+				data = JSON.parse(rawText) as unknown;
+			} catch {
+				data = { _unparsed: rawText };
+			}
+		}
 
 		if (!response.ok) {
-			const message =
-				(typeof data === 'object' &&
-					data !== null &&
-					'detail' in data &&
-					typeof (data as { detail?: unknown }).detail === 'string' &&
-					(data as { detail: string }).detail) ||
-				(typeof data === 'object' &&
-					data !== null &&
-					'message' in data &&
-					typeof (data as { message?: unknown }).message === 'string' &&
-					(data as { message: string }).message) ||
-				`Backend error (${response.status})`;
+			const message = messageFromBackendBody(response.status, data, rawText);
+			console.error('Backend /reservations error:', {
+				status: response.status,
+				statusText: response.statusText,
+				message,
+				bodyPreview: rawText.slice(0, 2000)
+			});
 
-			throw error(response.status >= 400 && response.status < 600 ? response.status : 502, message);
+			const httpStatus =
+				response.status >= 400 && response.status < 600 ? response.status : 502;
+			throw error(httpStatus, message);
 		}
 
 		return json({
