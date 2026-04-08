@@ -223,6 +223,18 @@ Add environment variables in Netlify dashboard:
 3. Add all OPERA_* variables
 4. Redeploy
 
+## Optional HTTP Basic Auth (staging / dev)
+
+To protect a preview or staging deployment while the site is not public, set in the environment (Vercel, Railway, `.env` locally):
+
+| Variable | Description |
+|----------|-------------|
+| `ENABLE_BASIC_AUTH` | `true`, `1`, or `yes` to enable |
+| `BASIC_AUTH_USER` | Username |
+| `BASIC_AUTH_PASSWORD` | Password |
+
+When enabled, every request must send `Authorization: Basic …` with matching credentials. Browsers show a login prompt on the first 401. Leave unset or set `ENABLE_BASIC_AUTH=false` for production when the booking site is public.
+
 ## Security Checklist
 
 Before going to production:

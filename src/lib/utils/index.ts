@@ -25,9 +25,12 @@ export {
 	formatLocalDate,
 	formatLocalDateLong,
 	formatLocalDateShort,
+	formatLocalDateForLang,
 	calculateNightsBetween,
 	getTodayLocalString,
-	getDateFromToday
+	getDateFromToday,
+	addDaysToLocalDateString,
+	maxLocalDateString
 } from './date-helpers';
 
 export {

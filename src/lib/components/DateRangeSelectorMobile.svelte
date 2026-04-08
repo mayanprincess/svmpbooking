@@ -5,7 +5,16 @@
 	 * Uses native inputs with beautiful styling - NO dependencies
 	 */
 
-	import { formatLocalDate, calculateNightsBetween, parseLocalDate, getTodayLocalString } from '$lib/utils/date-helpers';
+	import { onMount } from 'svelte';
+	import { locale, t } from '$lib/i18n';
+	import {
+		formatLocalDate,
+		calculateNightsBetween,
+		parseLocalDate,
+		getTodayLocalString,
+		addDaysToLocalDateString,
+		maxLocalDateString
+	} from '$lib/utils/date-helpers';
 	import { pluralize } from '$lib/utils/formatting';
 
 	interface Props {
@@ -24,16 +33,34 @@
 		disabled = false
 	}: Props = $props();
 
-	// Update check-out min date when check-in changes
-	let checkOutMinDate = $derived(checkIn || minDate);
+	/** Refreshed on the client so `<input type="date" min>` matches the guest’s “today” (fixes SSR TZ drift). */
+	let todayLocal = $state(getTodayLocalString());
+
+	onMount(() => {
+		todayLocal = getTodayLocalString();
+	});
+
+	/** Earliest check-in: max(prop minDate, today) — native `min` greys out past days in supporting browsers. */
+	let checkInMinDate = $derived(maxLocalDateString(todayLocal, minDate ?? todayLocal));
+
+	/**
+	 * Check-out must be strictly after check-in (≥ 1 night). Native `min` blocks invalid days in the picker.
+	 */
+	let checkOutMinDate = $derived(
+		checkIn ? addDaysToLocalDateString(checkIn, 1) : checkInMinDate
+	);
 
 	// Validate dates when they change
 	$effect(() => {
+		if (checkIn && parseLocalDate(checkIn) < parseLocalDate(checkInMinDate)) {
+			checkIn = '';
+		}
 		if (checkIn && checkOut) {
 			const startDate = parseLocalDate(checkIn);
 			const endDate = parseLocalDate(checkOut);
-			
-			if (endDate <= startDate) {
+			const minOut = parseLocalDate(addDaysToLocalDateString(checkIn, 1));
+
+			if (endDate <= startDate || endDate < minOut) {
 				checkOut = '';
 			}
 		}
@@ -53,7 +80,7 @@
 				fill="currentColor"
 			/>
 		</svg>
-		<span>Tap a date field to open your device calendar. Check-out must be after check-in.</span>
+		<span>{t($locale, 'nativeDateHint')}</span>
 	</p>
 	<!-- Check-in -->
 	<div class="date-field">
@@ -73,7 +100,7 @@
 				type="date"
 				class="date-input"
 				bind:value={checkIn}
-				min={minDate}
+				min={checkInMinDate}
 				{disabled}
 				required
 			/>

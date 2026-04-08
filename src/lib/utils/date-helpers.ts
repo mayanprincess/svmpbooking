@@ -53,6 +53,25 @@ export function formatLocalDateShort(dateStr: string): string {
 	});
 }
 
+/** Same date string, formatted for en or es locale (booking UI). */
+export function formatLocalDateForLang(
+	dateStr: string,
+	lang: 'en' | 'es',
+	style: 'medium' | 'short' = 'medium'
+): string {
+	if (!dateStr) return '';
+	const date = parseLocalDate(dateStr);
+	const locale = lang === 'es' ? 'es-MX' : 'en-US';
+	if (style === 'short') {
+		return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+	}
+	return date.toLocaleDateString(locale, {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric'
+	});
+}
+
 /**
  * Calculate nights between two date strings (YYYY-MM-DD)
  * Uses local timezone to avoid timezone offset issues
@@ -90,5 +109,22 @@ export function getDateFromToday(days: number): string {
 	const month = String(date.getMonth() + 1).padStart(2, '0');
 	const day = String(date.getDate()).padStart(2, '0');
 	return `${year}-${month}-${day}`;
+}
+
+/**
+ * Add N calendar days to a YYYY-MM-DD string (local timezone).
+ */
+export function addDaysToLocalDateString(iso: string, days: number): string {
+	const d = parseLocalDate(iso);
+	d.setDate(d.getDate() + days);
+	const year = d.getFullYear();
+	const month = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
+/** Latest (max) of two YYYY-MM-DD strings in local time */
+export function maxLocalDateString(a: string, b: string): string {
+	return parseLocalDate(a) >= parseLocalDate(b) ? a : b;
 }
 
