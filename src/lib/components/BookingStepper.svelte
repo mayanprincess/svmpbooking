@@ -843,7 +843,7 @@
 
 	.promo-section {
 		display: flex;
-        margin-top: 32px;
+		margin-top: 0;
 	}
 
 	.error-message {

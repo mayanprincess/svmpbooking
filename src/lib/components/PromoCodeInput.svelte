@@ -30,34 +30,35 @@
 </script>
 
 <div class="promo-code-input">
-	{#if !showInput}
-		<button type="button" class="promo-toggle" onclick={toggleInput} {disabled}>
-			<svg
-				width="20"
-				height="20"
-				viewBox="0 0 20 20"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-			>
-				<path
-					d="M2 6C2 4.89543 2.89543 4 4 4H16C17.1046 4 18 4.89543 18 6V8C18 9.10457 17.1046 10 16 10H4C2.89543 10 2 9.10457 2 8V6Z"
-					stroke="currentColor"
-					stroke-width="2"
-				/>
-				<path
-					d="M2 12C2 10.8954 2.89543 10 4 10H16C17.1046 10 18 10.8954 18 12V14C18 15.1046 17.1046 16 16 16H4C2.89543 16 2 15.1046 2 14V12Z"
-					stroke="currentColor"
-					stroke-width="2"
-				/>
-				<circle cx="6" cy="7" r="1" fill="currentColor" />
-				<circle cx="6" cy="13" r="1" fill="currentColor" />
-			</svg>
-			Have a promo code?
-		</button>
-	{:else}
-		<div class="promo-input-container">
-			<div class="form-group">
-				<label for="promo-code" class="form-label">Promo Code</label>
+	<div class="form-group">
+		<label for="promo-code" class="form-label">Promo Code</label>
+
+		{#if !showInput}
+			<button type="button" class="promo-toggle" onclick={toggleInput} {disabled}>
+				<svg
+					width="20"
+					height="20"
+					viewBox="0 0 20 20"
+					fill="none"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path
+						d="M2 6C2 4.89543 2.89543 4 4 4H16C17.1046 4 18 4.89543 18 6V8C18 9.10457 17.1046 10 16 10H4C2.89543 10 2 9.10457 2 8V6Z"
+						stroke="currentColor"
+						stroke-width="2"
+					/>
+					<path
+						d="M2 12C2 10.8954 2.89543 10 4 10H16C17.1046 10 18 10.8954 18 12V14C18 15.1046 17.1046 16 16 16H4C2.89543 16 2 15.1046 2 14V12Z"
+						stroke="currentColor"
+						stroke-width="2"
+					/>
+					<circle cx="6" cy="7" r="1" fill="currentColor" />
+					<circle cx="6" cy="13" r="1" fill="currentColor" />
+				</svg>
+				Have a promo code?
+			</button>
+		{:else}
+			<div class="promo-input-container">
 				<div class="input-with-button">
 					<input
 						id="promo-code"
@@ -106,13 +107,13 @@
 					</div>
 				{/if}
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 </div>
 
 <style>
 	.promo-code-input {
-		margin-bottom: var(--spacing-lg);
+		margin-bottom: 0;
 	}
 
 	.promo-toggle {
@@ -129,7 +130,8 @@
 		cursor: pointer;
 		transition: all var(--transition-fast);
 		width: 100%;
-		justify-content: center;
+		justify-content: flex-start;
+		min-height: 52px;
 	}
 
 	.promo-toggle:hover:not(:disabled) {
