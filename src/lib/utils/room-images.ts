@@ -20,7 +20,7 @@ const ROOM_IMAGE_COUNTS: Record<string, number> = {
 	'1BBFG': 3,
 	'1BBFS': 3,
 	'1BGS': 3,
-	'1BPTG': 3,
+	'1BPTG': 10,
 	'1BPG': 3,
 	'2BMS': 3,
 	'2BMSS': 3,
