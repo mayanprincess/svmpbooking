@@ -4,12 +4,77 @@
  */
 
 import type { Handle } from '@sveltejs/kit';
+import { env } from '$env/dynamic/private';
+
+/**
+ * Optional HTTP Basic Auth for staging / dev deployments.
+ * Set ENABLE_BASIC_AUTH=true plus BASIC_AUTH_USER and BASIC_AUTH_PASSWORD in the environment.
+ * Disable in production when the site is public (omit or set ENABLE_BASIC_AUTH=false).
+ */
+function devBasicAuthResponse(request: Request): Response | null {
+	const enabled =
+		env.ENABLE_BASIC_AUTH === 'true' ||
+		env.ENABLE_BASIC_AUTH === '1' ||
+		env.ENABLE_BASIC_AUTH === 'yes';
+
+	if (!enabled) {
+		return null;
+	}
+
+	const expectedUser = (env.BASIC_AUTH_USER ?? '').trim();
+	const expectedPass = env.BASIC_AUTH_PASSWORD ?? '';
+
+	if (!expectedUser || expectedPass === '') {
+		console.warn(
+			'[hooks] ENABLE_BASIC_AUTH is on but BASIC_AUTH_USER or BASIC_AUTH_PASSWORD is missing — skipping Basic Auth'
+		);
+		return null;
+	}
+
+	const header = request.headers.get('authorization');
+	if (!header?.startsWith('Basic ')) {
+		return basicAuthChallenge();
+	}
+
+	let decoded: string;
+	try {
+		decoded = atob(header.slice(6).trim());
+	} catch {
+		return basicAuthChallenge();
+	}
+
+	const colon = decoded.indexOf(':');
+	const user = colon >= 0 ? decoded.slice(0, colon) : decoded;
+	const pass = colon >= 0 ? decoded.slice(colon + 1) : '';
+
+	if (user !== expectedUser || pass !== expectedPass) {
+		return basicAuthChallenge();
+	}
+
+	return null;
+}
+
+function basicAuthChallenge(): Response {
+	return new Response('Authentication required', {
+		status: 401,
+		headers: {
+			'WWW-Authenticate': 'Basic realm="Mayan Princess (dev)"',
+			'Content-Type': 'text/plain; charset=utf-8',
+			'Cache-Control': 'no-store'
+		}
+	});
+}
 
 /**
  * Request handler
  * Can be used for logging, authentication, etc.
  */
 export const handle: Handle = async ({ event, resolve }) => {
+	const blocked = devBasicAuthResponse(event.request);
+	if (blocked) {
+		return blocked;
+	}
+
 	// Log all API requests (helpful for debugging)
 	if (event.url.pathname.startsWith('/api/')) {
 		console.log(`[API] ${event.request.method} ${event.url.pathname}`, {
@@ -49,4 +114,3 @@ export const handleError = async ({ error, event }) => {
 		message: 'An unexpected error occurred. Please try again later.'
 	};
 };
-
