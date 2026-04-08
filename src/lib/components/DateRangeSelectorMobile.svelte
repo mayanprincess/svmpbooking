@@ -1,19 +1,20 @@
 <script lang="ts">
 	/**
-	 * Mobile-First Date Range Selector
-	 * Simple, clean, and works perfectly on all devices
-	 * Uses native inputs with beautiful styling - NO dependencies
+	 * Mobile date-range UX:
+	 * - Strong active field feedback (check-in vs check-out)
+	 * - Sticky "what's next" instruction style helper
+	 * - Native OS date picker for speed/accessibility
 	 */
 
 	import { onMount } from 'svelte';
 	import { locale, t } from '$lib/i18n';
 	import {
-		formatLocalDate,
-		calculateNightsBetween,
-		parseLocalDate,
-		getTodayLocalString,
 		addDaysToLocalDateString,
-		maxLocalDateString
+		calculateNightsBetween,
+		formatLocalDate,
+		getTodayLocalString,
+		maxLocalDateString,
+		parseLocalDate
 	} from '$lib/utils/date-helpers';
 	import { pluralize } from '$lib/utils/formatting';
 
@@ -33,28 +34,58 @@
 		disabled = false
 	}: Props = $props();
 
-	/** Refreshed on the client so `<input type="date" min>` matches the guest’s “today” (fixes SSR TZ drift). */
+	let checkInInput: HTMLInputElement | undefined;
+	let checkOutInput: HTMLInputElement | undefined;
+
+	type ActiveField = 'checkIn' | 'checkOut';
+	let activeField = $state<ActiveField>('checkIn');
+
+	/** Refreshed on the client so `<input type="date" min>` matches guest timezone. */
 	let todayLocal = $state(getTodayLocalString());
 
 	onMount(() => {
 		todayLocal = getTodayLocalString();
 	});
 
-	/** Earliest check-in: max(prop minDate, today) — native `min` greys out past days in supporting browsers. */
 	let checkInMinDate = $derived(maxLocalDateString(todayLocal, minDate ?? todayLocal));
+	let checkOutMinDate = $derived(checkIn ? addDaysToLocalDateString(checkIn, 1) : checkInMinDate);
+	let nights = $derived(calculateNightsBetween(checkIn, checkOut));
 
-	/**
-	 * Check-out must be strictly after check-in (≥ 1 night). Native `min` blocks invalid days in the picker.
-	 */
-	let checkOutMinDate = $derived(
-		checkIn ? addDaysToLocalDateString(checkIn, 1) : checkInMinDate
-	);
+	let helperText = $derived.by(() => {
+		if (!checkIn) {
+			return $locale === 'es' ? 'Selecciona tu fecha de llegada primero.' : 'Select your check-in date first.';
+		}
+		if (!checkOut) {
+			return $locale === 'es'
+				? 'Ahora selecciona la fecha de salida.'
+				: 'Now select your check-out date.';
+		}
+		return '';
+	});
 
-	// Validate dates when they change
+	function focusField(field: ActiveField) {
+		if (disabled) return;
+		activeField = field;
+		if (field === 'checkIn') {
+			checkInInput?.focus();
+		} else {
+			checkOutInput?.focus();
+		}
+	}
+
+	function onCheckInChanged() {
+		if (checkIn) {
+			activeField = 'checkOut';
+			// Move user toward selecting return date without forcing hidden behavior.
+			setTimeout(() => checkOutInput?.focus(), 40);
+		}
+	}
+
 	$effect(() => {
 		if (checkIn && parseLocalDate(checkIn) < parseLocalDate(checkInMinDate)) {
 			checkIn = '';
 		}
+
 		if (checkIn && checkOut) {
 			const startDate = parseLocalDate(checkIn);
 			const endDate = parseLocalDate(checkOut);
@@ -64,12 +95,11 @@
 				checkOut = '';
 			}
 		}
+
 		if (onchange && checkIn && checkOut) {
 			onchange(checkIn, checkOut);
 		}
 	});
-
-	let nights = $derived(calculateNightsBetween(checkIn, checkOut));
 </script>
 
 <div class="date-range-mobile">
@@ -82,106 +112,100 @@
 		</svg>
 		<span>{t($locale, 'nativeDateHint')}</span>
 	</p>
-	<!-- Check-in -->
-	<div class="date-field">
-		<label for="checkin-mobile" class="field-label">
-			<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<rect x="3" y="5" width="14" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-				<path d="M3 9H17" stroke="currentColor" stroke-width="2" />
-				<path d="M7 3V5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-				<path d="M13 3V5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-			</svg>
-			Check-in
-		</label>
-		
-		<div class="input-wrapper">
+
+	<div class="range-card">
+		<button
+			type="button"
+			class="date-chip"
+			class:active={activeField === 'checkIn'}
+			class:filled={!!checkIn}
+			onclick={() => focusField('checkIn')}
+			aria-pressed={activeField === 'checkIn'}
+			{disabled}
+		>
 			<input
+				bind:this={checkInInput}
 				id="checkin-mobile"
 				type="date"
 				class="date-input"
 				bind:value={checkIn}
 				min={checkInMinDate}
+				onfocus={() => (activeField = 'checkIn')}
+				onchange={onCheckInChanged}
 				{disabled}
 				required
 			/>
-			<div class="date-display" class:empty={!checkIn}>
-				{#if checkIn}
-					{formatLocalDate(checkIn)}
-				{:else}
-					<span class="placeholder">Select date</span>
-				{/if}
-			</div>
-			<div class="calendar-icon">
-				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<rect x="3" y="5" width="14" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-					<path d="M3 9H17" stroke="currentColor" stroke-width="2" />
-				</svg>
-			</div>
-		</div>
-	</div>
+			<span class="chip-label">Check-in</span>
+			<span class="chip-value">{checkIn ? formatLocalDate(checkIn) : 'Add date'}</span>
+		</button>
 
-	<!-- Arrow -->
-	<div class="arrow-divider">
-		<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-			<path d="M5 12H19M19 12L12 5M19 12L12 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-		</svg>
-	</div>
-
-	<!-- Check-out -->
-	<div class="date-field">
-		<label for="checkout-mobile" class="field-label">
-			<svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<rect x="3" y="5" width="14" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-				<path d="M3 9H17" stroke="currentColor" stroke-width="2" />
-				<path d="M7 3V5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-				<path d="M13 3V5" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+		<div class="connector" aria-hidden="true">
+			<svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+				<path
+					d="M5 12h14M13 6l6 6-6 6"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+				/>
 			</svg>
-			Check-out
-		</label>
-		
-		<div class="input-wrapper">
+		</div>
+
+		<button
+			type="button"
+			class="date-chip"
+			class:active={activeField === 'checkOut'}
+			class:filled={!!checkOut}
+			onclick={() => focusField('checkOut')}
+			aria-pressed={activeField === 'checkOut'}
+			{disabled}
+		>
 			<input
+				bind:this={checkOutInput}
 				id="checkout-mobile"
 				type="date"
 				class="date-input"
 				bind:value={checkOut}
 				min={checkOutMinDate}
+				onfocus={() => (activeField = 'checkOut')}
 				{disabled}
 				required
 			/>
-			<div class="date-display" class:empty={!checkOut}>
-				{#if checkOut}
-					{formatLocalDate(checkOut)}
-				{:else}
-					<span class="placeholder">Select date</span>
-				{/if}
-			</div>
-			<div class="calendar-icon">
-				<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-					<rect x="3" y="5" width="14" height="13" rx="2" stroke="currentColor" stroke-width="2" />
-					<path d="M3 9H17" stroke="currentColor" stroke-width="2" />
-				</svg>
-			</div>
-		</div>
+			<span class="chip-label">Check-out</span>
+			<span class="chip-value">{checkOut ? formatLocalDate(checkOut) : 'Add date'}</span>
+		</button>
 	</div>
 
-	<!-- Nights Display -->
+	{#if helperText}
+		<div class="helper-strip">
+			<span class="helper-dot"></span>
+			<span>{helperText}</span>
+		</div>
+	{/if}
+
 	{#if nights > 0}
 		<div class="nights-display">
-			<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<path d="M10 2L12.09 6.26L17 7.27L13.5 10.97L14.18 16L10 13.77L5.82 16L6.5 10.97L3 7.27L7.91 6.26L10 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-			</svg>
-			<span><strong>{nights}</strong> {pluralize(nights, 'Night', 'Nights')}</span>
+			<span class="nights-number">{nights}</span>
+			<span>{pluralize(nights, 'Night', 'Nights')}</span>
+			<span class="nights-sep">·</span>
+			<span class="nights-range">{formatLocalDate(checkIn)} — {formatLocalDate(checkOut)}</span>
 		</div>
 	{/if}
 </div>
 
 <style>
+	.date-range-mobile {
+		display: flex;
+		flex-direction: column;
+		gap: var(--spacing-md);
+		margin-bottom: var(--spacing-lg);
+	}
+
 	.native-calendar-hint {
 		display: flex;
 		align-items: flex-start;
 		gap: var(--spacing-sm);
-		margin: 0 0 var(--spacing-md);
+		margin: 0;
 		padding: var(--spacing-sm) var(--spacing-md);
 		font-size: 0.8125rem;
 		line-height: 1.45;
@@ -197,181 +221,153 @@
 		color: var(--color-secondary);
 	}
 
-	.date-range-mobile {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-md);
-		margin-bottom: var(--spacing-lg);
-	}
-
-	.date-field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--spacing-sm);
-	}
-
-	.field-label {
-		display: flex;
+	.range-card {
+		display: grid;
+		grid-template-columns: 1fr auto 1fr;
+		gap: 0.55rem;
 		align-items: center;
-		gap: var(--spacing-xs);
-		font-size: 0.875rem;
-		font-weight: 600;
-		color: var(--color-primary);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		padding: 0.55rem;
+		background: linear-gradient(
+			180deg,
+			color-mix(in srgb, var(--color-beige-light) 70%, #fff) 0%,
+			#fff 100%
+		);
+		border: 1px solid color-mix(in srgb, var(--color-secondary) 25%, var(--color-gray-light));
+		border-radius: var(--radius-xl);
+		box-shadow: 0 8px 20px rgba(24, 52, 83, 0.06);
 	}
 
-	.input-wrapper {
+	.date-chip {
 		position: relative;
 		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.2rem;
+		padding: 0.7rem 0.8rem;
+		min-height: 4rem;
+		background: #fff;
+		border: 2px solid var(--color-gray-light);
+		border-radius: 0.9rem;
+		color: var(--color-primary);
+		text-align: left;
+		transition:
+			border-color 0.18s ease,
+			box-shadow 0.18s ease,
+			background 0.18s ease;
+	}
+
+	.date-chip.active {
+		border-color: var(--color-secondary);
+		background: color-mix(in srgb, var(--color-secondary) 7%, white);
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-secondary) 20%, transparent);
+	}
+
+	.date-chip.filled:not(.active) {
+		border-color: color-mix(in srgb, var(--color-primary) 20%, var(--color-gray-light));
+	}
+
+	.date-chip:disabled {
+		opacity: 0.6;
+	}
+
+	.chip-label {
+		font-size: 0.64rem;
+		font-weight: 700;
+		text-transform: uppercase;
+		letter-spacing: 0.08em;
+		color: color-mix(in srgb, var(--color-primary) 60%, var(--color-gray));
+	}
+
+	.chip-value {
+		font-size: 0.95rem;
+		font-weight: 650;
+		line-height: 1.2;
+	}
+
+	.connector {
+		display: flex;
 		align-items: center;
+		justify-content: center;
+		width: 1.75rem;
+		height: 1.75rem;
+		border-radius: 999px;
+		color: var(--color-secondary);
+		background: color-mix(in srgb, var(--color-secondary) 10%, white);
+		border: 1px solid color-mix(in srgb, var(--color-secondary) 35%, var(--color-gray-light));
 	}
 
 	.date-input {
 		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
+		inset: 0;
 		opacity: 0;
 		cursor: pointer;
-		z-index: 2;
 	}
 
-	/* Force the calendar picker to cover the entire area */
 	.date-input::-webkit-calendar-picker-indicator {
 		position: absolute;
-		top: 0;
-		left: 0;
+		inset: 0;
 		width: 100%;
 		height: 100%;
-		margin: 0;
-		padding: 0;
-		cursor: pointer;
 		opacity: 0;
+		cursor: pointer;
 	}
 
-	.date-display {
-		flex: 1;
-		padding: var(--spacing-lg);
-		background: var(--color-white);
-		border: 2px solid var(--color-gray-light);
-		border-radius: var(--radius-lg);
-		font-size: 1rem;
-		font-weight: 600;
-		color: var(--color-primary);
-		transition: all var(--transition-fast);
-		min-height: 56px;
+	.helper-strip {
 		display: flex;
 		align-items: center;
-		pointer-events: none;
-		position: relative;
-		z-index: 1;
+		gap: 0.5rem;
+		padding: 0.55rem 0.75rem;
+		font-size: 0.84rem;
+		color: var(--color-primary);
+		background: color-mix(in srgb, var(--color-primary) 5%, white);
+		border: 1px solid color-mix(in srgb, var(--color-primary) 12%, var(--color-gray-light));
+		border-radius: var(--radius-md);
 	}
 
-	.date-display.empty {
-		font-weight: 400;
+	.helper-strip.ready {
+		color: #0f5f3b;
+		background: color-mix(in srgb, #38a169 12%, white);
+		border-color: color-mix(in srgb, #38a169 26%, var(--color-gray-light));
 	}
 
-	.date-display .placeholder {
-		color: var(--color-gray);
-		font-weight: 400;
-	}
-
-	/* Hover state */
-	.input-wrapper:hover .date-display {
-		border-color: var(--color-secondary);
-		box-shadow: var(--shadow-md);
-	}
-
-	/* Focus state - triggered when date input opens */
-	.date-input:focus + .date-display {
-		border-color: var(--color-secondary);
-		box-shadow: 0 0 0 3px rgba(197, 165, 111, 0.15);
-		background: var(--color-beige-light);
-	}
-
-	.calendar-icon {
-		position: absolute;
-		right: var(--spacing-md);
-		color: var(--color-secondary);
-		pointer-events: none;
-		z-index: 1;
-	}
-
-	.arrow-divider {
-		display: none;
-		align-items: center;
-		justify-content: center;
-		color: var(--color-secondary);
-		padding: var(--spacing-sm) 0;
-		margin-top: 1.rem;
+	.helper-dot {
+		width: 0.45rem;
+		height: 0.45rem;
+		border-radius: 999px;
+		background: currentColor;
+		flex-shrink: 0;
 	}
 
 	.nights-display {
-		display: flex;
-		align-items: center;
+		display: inline-flex;
+		align-items: baseline;
 		justify-content: center;
-		gap: var(--spacing-sm);
-		padding: var(--spacing-md) var(--spacing-lg);
-		background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-tertiary) 100%);
-		color: var(--color-white);
+		flex-wrap: wrap;
+		gap: 0.35rem 0.45rem;
+		padding: 0.65rem 0.9rem;
+		background: linear-gradient(
+			135deg,
+			color-mix(in srgb, var(--color-secondary) 14%, white) 0%,
+			color-mix(in srgb, var(--color-beige-light) 88%, white) 100%
+		);
+		color: var(--color-primary);
+		border: 1px solid color-mix(in srgb, var(--color-secondary) 34%, transparent);
 		border-radius: var(--radius-lg);
-		font-size: 1rem;
-		box-shadow: var(--shadow-md);
-		margin-top: var(--spacing-sm);
 	}
 
-	.nights-display strong {
-		font-size: 1.5rem;
-		font-weight: 700;
+	.nights-number {
+		font-size: 1.2rem;
+		font-weight: 800;
+		color: var(--color-secondary);
 	}
 
-	/* Desktop: side by side */
-	@media (min-width: 640px) {
-		.date-range-mobile {
-			display: grid;
-			grid-template-columns: 1fr auto 1fr;
-			grid-template-rows: auto auto;
-			gap: var(--spacing-md);
-			align-items: start;
-		}
-
-		.date-field:first-child {
-			grid-column: 1;
-			grid-row: 1;
-		}
-
-		.arrow-divider {
-			display: flex;
-			grid-column: 2;
-			grid-row: 1;
-			padding-top: 1.5rem;
-			margin-top: 2rem;
-		}
-
-		.date-field:nth-child(3) {
-			grid-column: 3;
-			grid-row: 1;
-		}
-
-		.nights-display {
-			grid-column: 1 / -1;
-			grid-row: 2;
-			margin-top: 0;
-		}
+	.nights-sep {
+		opacity: 0.4;
 	}
 
-	/* Ensure touch targets are at least 44px on mobile */
-	@media (max-width: 639px) {
-		.date-display {
-			min-height: 52px;
-			font-size: 1rem;
-		}
-
-		.arrow-divider {
-			padding: var(--spacing-xs) 0;
-		}
+	.nights-range {
+		font-size: 0.8rem;
+		opacity: 0.9;
 	}
 </style>
 
