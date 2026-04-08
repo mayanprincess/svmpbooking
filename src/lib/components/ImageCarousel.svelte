@@ -5,7 +5,7 @@
 	 */
 
 	interface Props {
-		images: Array<{ src: string; alt: string }>;
+		images: Array<{ alt: string; candidates: string[] }>;
 		autoplay?: boolean;
 	}
 
@@ -14,8 +14,26 @@
 	let currentIndex = $state(0);
 	let touchStartX = $state(0);
 	let touchEndX = $state(0);
-	let loadedImages = $state<boolean[]>(images.map(() => false));
-	let imageErrors = $state<boolean[]>(images.map(() => false));
+	let loadedImages = $state<boolean[]>([]);
+	let imageErrors = $state<boolean[]>([]);
+	/** Per slide: which candidate URL index we're showing */
+	let candidateIndex = $state<number[]>([]);
+
+	$effect(() => {
+		void images;
+		const n = images.length;
+		loadedImages = Array.from({ length: n }, () => false);
+		imageErrors = Array.from({ length: n }, () => false);
+		candidateIndex = Array.from({ length: n }, () => 0);
+		currentIndex = 0;
+	});
+
+	function sourceFor(index: number): string {
+		const slide = images[index];
+		const cands = slide?.candidates ?? [];
+		const i = candidateIndex[index] ?? 0;
+		return cands[i] ?? cands[0] ?? '';
+	}
 
 	function nextImage() {
 		currentIndex = (currentIndex + 1) % images.length;
@@ -49,15 +67,22 @@
 	}
 
 	function handleImageLoad(index: number) {
-		loadedImages[index] = true;
+		loadedImages = loadedImages.map((v, i) => (i === index ? true : v));
 	}
 
 	function handleImageError(index: number) {
-		imageErrors[index] = true;
-		console.warn(`Failed to load image: ${images[index].src}`);
+		const slide = images[index];
+		const cands = slide?.candidates ?? [];
+		const next = (candidateIndex[index] ?? 0) + 1;
+		if (next < cands.length) {
+			candidateIndex = candidateIndex.map((v, i) => (i === index ? next : v));
+			loadedImages = loadedImages.map((v, i) => (i === index ? false : v));
+			return;
+		}
+		imageErrors = imageErrors.map((v, i) => (i === index ? true : v));
+		console.warn(`Failed to load image for slide ${index} (tried: ${cands.join(', ')})`);
 	}
 
-	// Auto-play functionality
 	$effect(() => {
 		if (autoplay && images.length > 1) {
 			const interval = setInterval(nextImage, 4000);
@@ -66,31 +91,31 @@
 	});
 </script>
 
-<div 
+<div
 	class="carousel"
 	ontouchstart={handleTouchStart}
 	ontouchmove={handleTouchMove}
 	ontouchend={handleTouchEnd}
 >
-	<!-- Images -->
 	<div class="carousel-images">
-		{#each images as image, index}
+		{#each images as _, index}
 			{#if !imageErrors[index]}
-				<img
-					src={image.src}
-					alt={image.alt}
-					class="carousel-image"
-					class:active={index === currentIndex}
-					class:loaded={loadedImages[index]}
-					loading={index === 0 ? 'eager' : 'lazy'}
-					onload={() => handleImageLoad(index)}
-					onerror={() => handleImageError(index)}
-				/>
+				{#key `${index}-${candidateIndex[index] ?? 0}`}
+					<img
+						src={sourceFor(index)}
+						alt={images[index].alt}
+						class="carousel-image"
+						class:active={index === currentIndex}
+						class:loaded={loadedImages[index]}
+						loading={index === 0 ? 'eager' : 'lazy'}
+						onload={() => handleImageLoad(index)}
+						onerror={() => handleImageError(index)}
+					/>
+				{/key}
 			{/if}
 		{/each}
 	</div>
 
-	<!-- Navigation Arrows -->
 	{#if images.length > 1}
 		<button
 			class="carousel-nav carousel-prev"
@@ -98,7 +123,7 @@
 			aria-label="Previous image"
 		>
 			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M15 18l-6-6 6-6"/>
+				<path d="M15 18l-6-6 6-6" />
 			</svg>
 		</button>
 
@@ -108,11 +133,10 @@
 			aria-label="Next image"
 		>
 			<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-				<path d="M9 18l6-6-6-6"/>
+				<path d="M9 18l6-6-6-6" />
 			</svg>
 		</button>
 
-		<!-- Dots Indicator -->
 		<div class="carousel-dots">
 			{#each images as _, index}
 				<button
@@ -164,7 +188,6 @@
 		pointer-events: auto;
 	}
 
-	/* Navigation Arrows */
 	.carousel-nav {
 		position: absolute;
 		top: 50%;
@@ -202,7 +225,6 @@
 		right: 8px;
 	}
 
-	/* Dots Indicator */
 	.carousel-dots {
 		position: absolute;
 		bottom: 12px;
@@ -235,11 +257,9 @@
 		background: white;
 	}
 
-	/* Mobile optimizations */
 	@media (max-width: 768px) {
 		.carousel-nav {
 			opacity: 0.7;
 		}
 	}
 </style>
-

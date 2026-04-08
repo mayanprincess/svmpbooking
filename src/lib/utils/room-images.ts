@@ -3,9 +3,13 @@
  * Manages room image paths and provides helper functions
  */
 
+/** Tried in this order per slide until one file exists (static hosting has no directory listing). */
+export const ROOM_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png'] as const;
+
 export interface RoomImage {
-	src: string;
 	alt: string;
+	/** Absolute paths under /static — carousel tries each until one loads */
+	candidates: string[];
 }
 
 /**
@@ -28,6 +32,7 @@ const ROOM_IMAGE_COUNTS: Record<string, number> = {
 /**
  * Get all images for a specific room type
  * Images should be stored in /static/rooms/{roomCode}/
+ * Use the same base name with extension .jpg, .jpeg, or .png (e.g. 1.jpg or 1.png)
  */
 export function getRoomImages(roomCode: string): RoomImage[] {
 	const imageCount = ROOM_IMAGE_COUNTS[roomCode] || 3;
@@ -35,8 +40,8 @@ export function getRoomImages(roomCode: string): RoomImage[] {
 
 	for (let i = 1; i <= imageCount; i++) {
 		images.push({
-			src: `/rooms/${roomCode}/${i}.jpg`,
-			alt: `${roomCode} - Image ${i}`
+			alt: `${roomCode} - Image ${i}`,
+			candidates: ROOM_IMAGE_EXTENSIONS.map((ext) => `/rooms/${roomCode}/${i}${ext}`)
 		});
 	}
 
@@ -44,7 +49,7 @@ export function getRoomImages(roomCode: string): RoomImage[] {
 }
 
 /**
- * Get the primary image for a room (used for thumbnails)
+ * Get the primary image URL for a room (first format tried: .jpg)
  */
 export function getRoomThumbnail(roomCode: string): string {
 	return `/rooms/${roomCode}/1.jpg`;
@@ -64,4 +69,3 @@ export function updateRoomImageCount(roomCode: string, count: number): void {
 export function getRoomImageCount(roomCode: string): number {
 	return ROOM_IMAGE_COUNTS[roomCode] || 3;
 }
-
