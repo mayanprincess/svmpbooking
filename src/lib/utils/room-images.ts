@@ -16,17 +16,20 @@ export interface RoomImage {
  * Configuration for number of images per room type
  * Update these values when you add more images to each folder
  */
+/** Minimum slides to request per room (carousel tries 1..N until files missing). */
+const DEFAULT_ROOM_IMAGE_COUNT = 5;
+
 const ROOM_IMAGE_COUNTS: Record<string, number> = {
-	'1BBFG': 3,
-	'1BBFS': 3,
-	'1BGS': 3,
+	'1BBFG': 5,
+	'1BBFS': 5,
+	'1BGS': 5,
 	'1BPTG': 10,
-	'1BPG': 3,
-	'2BMS': 3,
-	'2BMSS': 3,
-	'1BT': 3,
-	'2BT': 3,
-	'2BJS': 3
+	'1BPG': 5,
+	'2BMS': 5,
+	'2BMSS': 5,
+	'1BT': 5,
+	'2BT': 5,
+	'2BJS': 5
 };
 
 /**
@@ -35,7 +38,7 @@ const ROOM_IMAGE_COUNTS: Record<string, number> = {
  * Use the same base name with extension .jpg, .jpeg, or .png (e.g. 1.jpg or 1.png)
  */
 export function getRoomImages(roomCode: string): RoomImage[] {
-	const imageCount = ROOM_IMAGE_COUNTS[roomCode] || 3;
+	const imageCount = ROOM_IMAGE_COUNTS[roomCode] ?? DEFAULT_ROOM_IMAGE_COUNT;
 	const images: RoomImage[] = [];
 
 	for (let i = 1; i <= imageCount; i++) {
@@ -67,5 +70,5 @@ export function updateRoomImageCount(roomCode: string, count: number): void {
  * Get the current image count for a room type
  */
 export function getRoomImageCount(roomCode: string): number {
-	return ROOM_IMAGE_COUNTS[roomCode] || 3;
+	return ROOM_IMAGE_COUNTS[roomCode] ?? DEFAULT_ROOM_IMAGE_COUNT;
 }
