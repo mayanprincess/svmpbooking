@@ -24,6 +24,19 @@ export const GET: RequestHandler = async ({ url }) => {
 			throw error(400, 'Missing required parameters: checkIn, checkOut, adults');
 		}
 
+		const isoDate = /^\d{4}-\d{2}-\d{2}$/;
+		if (
+			checkIn === 'YYYY-MM-DD' ||
+			checkOut === 'YYYY-MM-DD' ||
+			!isoDate.test(checkIn) ||
+			!isoDate.test(checkOut)
+		) {
+			throw error(
+				400,
+				'Use real calendar dates in YYYY-MM-DD (e.g. checkIn=2026-06-10&checkOut=2026-06-14), not the placeholder YYYY-MM-DD'
+			);
+		}
+
 		const adultsCount = parseInt(adults, 10);
 		const childrenCount = children ? parseInt(children, 10) : 0;
 
@@ -150,12 +163,22 @@ export const GET: RequestHandler = async ({ url }) => {
 			throw err;
 		}
 
-		return json({
-			debug: true,
-			error: true,
-			message: err instanceof Error ? err.message : 'Failed to fetch availability',
-			stack: err instanceof Error ? err.stack : undefined
-		}, { status: 500 });
+		const message = err instanceof Error ? err.message : 'Failed to fetch availability';
+		const isOperaUpstream =
+			message.includes('OPERA availability error') || message.includes('OPERA token') || message.includes('Unable to obtain OPERA');
+
+		return json(
+			{
+				debug: true,
+				error: true,
+				message,
+				hint: isOperaUpstream
+					? 'Upstream OPERA/OHIP rejected the request (bad dates, hotel id, or env). Check .env and try other dates.'
+					: undefined,
+				stack: err instanceof Error ? err.stack : undefined
+			},
+			{ status: isOperaUpstream ? 502 : 500 }
+		);
 	}
 };
 

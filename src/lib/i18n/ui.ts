@@ -86,7 +86,7 @@ export function t(lang: Locale, key: UiKey): string {
 
 export function villasAvailablePhrase(lang: Locale, count: number): string {
 	if (lang === 'es') {
-		return count === 1 ? '1 villa disponible' : `${count} villas disponibles`;
+		return count === 1 ? '1 Opción disponible' : `${count} Opciones disponibles`;
 	}
-	return count === 1 ? '1 Villa Available' : `${count} Villas Available`;
+	return count === 1 ? '1 Option Available' : `${count} Options Available`;
 }

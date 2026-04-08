@@ -122,6 +122,39 @@ export const operaStaticConfig = {
 			location: 'Mayan',
 			view: 'ocean',
 			sortOrder: 45
+		},
+		'2BBFM': {
+			nameEn: 'Two Bedroom Beach Front Master',
+			nameEs: 'Dos Recámaras Master Frente al Mar',
+			bedrooms: 2,
+			maxAdults: 6,
+			maxChildren: 4,
+			beds: ['1 KING', '1 QUEEN', '1 SOFA'],
+			location: 'Mayan',
+			view: 'ocean',
+			sortOrder: 46
+		},
+		'2DLX': {
+			nameEn: 'Two Bedroom Deluxe',
+			nameEs: 'Dos Recámaras Deluxe',
+			bedrooms: 2,
+			maxAdults: 4,
+			maxChildren: 4,
+			beds: ['2 QUEEN'],
+			location: 'Mayan',
+			view: 'garden',
+			sortOrder: 47
+		},
+		FS: {
+			nameEn: 'Family Suite',
+			nameEs: 'Suite Familiar',
+			bedrooms: 2,
+			maxAdults: 6,
+			maxChildren: 4,
+			beds: ['2 QUEEN', '1 SOFA'],
+			location: 'Mayan',
+			view: 'garden',
+			sortOrder: 48
 		}
 	},
 
@@ -168,6 +201,35 @@ export const operaStaticConfig = {
 			labelEs: 'Desayuno Incluido 2025',
 			includes: ['breakfast'],
 			sortOrder: 10
+		},
+		/** OTA-channel rate codes (suffix …OTA) — see rate-display-filters.ts */
+		BIMPOTA: {
+			package: 'basic',
+			labelEn: 'Breakfast Included (OTA)',
+			labelEs: 'Desayuno Incluido (OTA)',
+			includes: ['breakfast'],
+			sortOrder: 11
+		},
+		BILSOTA: {
+			package: 'basic',
+			labelEn: 'Breakfast Included LS (OTA)',
+			labelEs: 'Desayuno Incluido LS (OTA)',
+			includes: ['breakfast'],
+			sortOrder: 12
+		},
+		AIPLSOTA: {
+			package: 'premium',
+			labelEn: 'All Inclusive Premium LS (OTA)',
+			labelEs: 'Todo Incluido Premium LS (OTA)',
+			includes: ['meals', 'drinks', 'kids_club', 'activities', 'premium_spirits'],
+			sortOrder: 13
+		},
+		AIPMOTA: {
+			package: 'premium',
+			labelEn: 'All Inclusive Premium (OTA)',
+			labelEs: 'Todo Incluido Premium (OTA)',
+			includes: ['meals', 'drinks', 'kids_club', 'activities', 'premium_spirits'],
+			sortOrder: 14
 		}
 	},
 

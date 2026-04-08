@@ -3,6 +3,7 @@
  * Enriches OPERA API responses with local configuration data
  */
 
+import { isOtaSuffixedRatePlanCode, rateHasPositiveAmount } from '$lib/config/rate-display-filters';
 import { operaStaticConfig } from '$lib/config/opera-config';
 import type {
 	AvailabilityResponse,
@@ -90,6 +91,23 @@ export function enrichAvailability(
 
 		for (const roomRate of rates) {
 			const ratePlanCode = roomRate.ratePlanCode;
+
+			// Get rate amount early — drop $0 rows and channels we do not sell on the site
+			const amountBeforeTax = roomRate.total?.amountBeforeTax || 0;
+			const amountAfterTax = roomRate.total?.amountAfterTax ?? amountBeforeTax;
+
+			if (!rateHasPositiveAmount(amountBeforeTax, amountAfterTax)) {
+				console.log(
+					`  ⏭️ Skip ${ratePlanCode} (${roomTypeCode}): zero amount (before=${amountBeforeTax}, after=${amountAfterTax})`
+				);
+				continue;
+			}
+
+			if (!isOtaSuffixedRatePlanCode(ratePlanCode)) {
+				console.log(`  ⏭️ Skip ${ratePlanCode} (${roomTypeCode}): not an OTA-suffixed rate plan (web channel)`);
+				continue;
+			}
+
 			const ratePlanConfig =
 				operaStaticConfig.ratePlans[ratePlanCode as keyof typeof operaStaticConfig.ratePlans];
 
@@ -115,12 +133,8 @@ export function enrichAvailability(
 			const packageType = ratePlanConfig.package;
 			const packageConfig = operaStaticConfig.packageTypes[packageType];
 
-			// Get rate amount from the roomRate.total
-			// OPERA sometimes only sends amountBeforeTax, so we use that as fallback
-			const amountBeforeTax = roomRate.total?.amountBeforeTax || 0;
-			const amountAfterTax = roomRate.total?.amountAfterTax || amountBeforeTax;
 			const currencyCode = roomRate.total?.currencyCode || 'USD';
-			
+
 			console.log(`  💵 Parsed amounts: before=${amountBeforeTax}, after=${amountAfterTax}, currency=${currencyCode}`);
 
 			// Get amenities labels
@@ -156,6 +170,13 @@ export function enrichAvailability(
 
 		// Sort rates by price (lowest first)
 		enrichedRates.sort((a, b) => a.amountAfterTax - b.amountAfterTax);
+
+		if (enrichedRates.length === 0) {
+			console.log(
+				`⏭️ ENRICHMENT: Skipping room type ${roomTypeCode} — no rates left after amount/market/config filters`
+			);
+			continue;
+		}
 
 		// Create enriched room
 		enrichedRooms.push({
