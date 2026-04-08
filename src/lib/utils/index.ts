@@ -25,6 +25,7 @@ export {
 	formatLocalDate,
 	formatLocalDateLong,
 	formatLocalDateShort,
+	formatLocalDateForLang,
 	calculateNightsBetween,
 	getTodayLocalString,
 	getDateFromToday,

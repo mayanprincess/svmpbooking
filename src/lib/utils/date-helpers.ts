@@ -53,6 +53,25 @@ export function formatLocalDateShort(dateStr: string): string {
 	});
 }
 
+/** Same date string, formatted for en or es locale (booking UI). */
+export function formatLocalDateForLang(
+	dateStr: string,
+	lang: 'en' | 'es',
+	style: 'medium' | 'short' = 'medium'
+): string {
+	if (!dateStr) return '';
+	const date = parseLocalDate(dateStr);
+	const locale = lang === 'es' ? 'es-MX' : 'en-US';
+	if (style === 'short') {
+		return date.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+	}
+	return date.toLocaleDateString(locale, {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric'
+	});
+}
+
 /**
  * Calculate nights between two date strings (YYYY-MM-DD)
  * Uses local timezone to avoid timezone offset issues

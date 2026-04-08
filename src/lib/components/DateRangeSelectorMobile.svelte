@@ -6,6 +6,7 @@
 	 */
 
 	import { onMount } from 'svelte';
+	import { locale, t } from '$lib/i18n';
 	import {
 		formatLocalDate,
 		calculateNightsBetween,
@@ -79,7 +80,7 @@
 				fill="currentColor"
 			/>
 		</svg>
-		<span>Tap a date field to open your device calendar. Check-out must be after check-in.</span>
+		<span>{t($locale, 'nativeDateHint')}</span>
 	</p>
 	<!-- Check-in -->
 	<div class="date-field">

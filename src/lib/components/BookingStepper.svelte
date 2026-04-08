@@ -5,8 +5,10 @@
 	 * Now using global store for state management
 	 */
 
+	import { get } from 'svelte/store';
 	import { fly } from 'svelte/transition';
 	import { tick } from 'svelte';
+	import { locale, t, villasAvailablePhrase } from '$lib/i18n';
 	import DateRangeSelector from './DateRangeSelectorResponsive.svelte';
 	import GuestSelector from './GuestSelector.svelte';
 	import PromoCodeInput from './PromoCodeInput.svelte';
@@ -16,8 +18,8 @@
 	import Button from './shared/Button.svelte';
 	import type { EnrichedRoomAvailability } from '$lib/types/opera';
 	import { bookingStore, nights, completeBookingData } from '$lib/stores';
-	import { pluralize, formatCurrency } from '$lib/utils/formatting';
-	import { formatLocalDate, formatLocalDateShort } from '$lib/utils/date-helpers';
+	import { formatCurrency } from '$lib/utils/formatting';
+	import { formatLocalDateForLang } from '$lib/utils/date-helpers';
 	import { scrollToElement, scrollToTop, scrollToTopInstant } from '$lib/utils/scroll';
 	import { trackEvent } from '$lib/services/analytics';
 
@@ -78,7 +80,7 @@
 		});
 
 		if (!isFormValid) {
-			bookingStore.setError('Please fill in all required fields');
+			bookingStore.setError(t(get(locale), 'fillRequired'));
 			return;
 		}
 
@@ -86,11 +88,13 @@
 		bookingStore.clearError();
 
 		try {
+			const lang = get(locale);
 			const params = new URLSearchParams({
 				checkIn,
 				checkOut,
 				adults: adults.toString(),
-				children: children.toString()
+				children: children.toString(),
+				lang
 			});
 
 			if (promoCode) {
@@ -120,7 +124,7 @@
 				bookingStore.goToStep('select');
 				scrollToElement('room-selection');
 			} else {
-				bookingStore.setError('No rooms available for your dates. Please try different dates.');
+				bookingStore.setError(t(get(locale), 'noRooms'));
 				
 				// Track no availability
 				trackEvent('search_completed', {
@@ -130,7 +134,9 @@
 				});
 			}
 		} catch (err) {
-			bookingStore.setError(err instanceof Error ? err.message : 'An error occurred');
+			bookingStore.setError(
+				err instanceof Error ? err.message : t(get(locale), 'searchError')
+			);
 			
 			// Track error
 			trackEvent('booking_error', {
@@ -440,22 +446,22 @@
 	<div class="stepper-progress">
 		<div class="step" class:active={$bookingStore.currentStep === 'search'} class:completed={$bookingStore.currentStep !== 'search'}>
 			<div class="step-number">1</div>
-			<div class="step-label">Search</div>
+			<div class="step-label">{t($locale, 'stepSearch')}</div>
 		</div>
 		<div class="step-line" class:active={$bookingStore.currentStep !== 'search'}></div>
 		<div class="step" class:active={$bookingStore.currentStep === 'select'} class:completed={['details', 'payment', 'confirmation'].includes($bookingStore.currentStep)}>
 			<div class="step-number">2</div>
-			<div class="step-label">Select</div>
+			<div class="step-label">{t($locale, 'stepSelect')}</div>
 		</div>
 		<div class="step-line" class:active={['details', 'payment', 'confirmation'].includes($bookingStore.currentStep)}></div>
 		<div class="step" class:active={$bookingStore.currentStep === 'details'} class:completed={['payment', 'confirmation'].includes($bookingStore.currentStep)}>
 			<div class="step-number">3</div>
-			<div class="step-label">Details</div>
+			<div class="step-label">{t($locale, 'stepDetails')}</div>
 		</div>
 		<div class="step-line" class:active={['payment', 'confirmation'].includes($bookingStore.currentStep)}></div>
 		<div class="step" class:active={$bookingStore.currentStep === 'payment'} class:completed={['confirmation'].includes($bookingStore.currentStep)}>
 			<div class="step-number">4</div>
-			<div class="step-label">Payment</div>
+			<div class="step-label">{t($locale, 'stepPayment')}</div>
 		</div>
 	</div>
 {/if}
@@ -464,8 +470,8 @@
 {#if $bookingStore.currentStep === 'search'}
 	<div class="step-content search-step" in:fly={{ y: 20, duration: 300 }}>
 		<div class="search-header">
-			<h2>Find Your Perfect Villa</h2>
-			<p>Select your dates and number of guests to see available rooms</p>
+			<h2>{t($locale, 'searchTitle')}</h2>
+			<p>{t($locale, 'searchSubtitle')}</p>
 		</div>
 
 		<form class="search-form" onsubmit={(e) => { e.preventDefault(); handleSearch(); }}>
@@ -477,7 +483,10 @@
 						bind:checkOut
 					/>
 					{#if $nights > 0}
-						<span class="nights-badge">{$nights} {pluralize($nights, 'night', 'nights')}</span>
+						<span class="nights-badge"
+							>{$nights}
+							{$nights === 1 ? t($locale, 'night') : t($locale, 'nights')}</span
+						>
 					{/if}
 				</div>
 
@@ -507,7 +516,7 @@
 							<path d="m21 21-4.35-4.35"></path>
 						</svg>
 					{/if}
-					{$bookingStore.loading ? 'Searching...' : 'Search Rooms'}
+					{$bookingStore.loading ? t($locale, 'searching') : t($locale, 'searchButton')}
 				{/snippet}
 			</Button>
 		</form>
@@ -522,7 +531,7 @@
 				<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 					<path d="M19 12H5M12 19l-7-7 7-7"/>
 				</svg>
-				Modify Search
+				{t($locale, 'modifySearch')}
 			</button>
 			<div class="search-summary">
 				<span class="summary-item">
@@ -532,26 +541,35 @@
 						<line x1="8" y1="2" x2="8" y2="6"></line>
 						<line x1="3" y1="10" x2="21" y2="10"></line>
 					</svg>
-					{formatLocalDate($bookingStore.checkIn)} - {formatLocalDate($bookingStore.checkOut)}
+					{formatLocalDateForLang($bookingStore.checkIn, $locale)} — {formatLocalDateForLang(
+						$bookingStore.checkOut,
+						$locale
+					)}
 				</span>
 				<span class="summary-item">
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
 						<circle cx="12" cy="7" r="4"></circle>
 					</svg>
-					{$bookingStore.adults} {pluralize($bookingStore.adults, 'Adult', 'Adults')}{$bookingStore.children > 0 ? `, ${$bookingStore.children} ${pluralize($bookingStore.children, 'Child', 'Children')}` : ''}
+					{$bookingStore.adults}
+					{$bookingStore.adults === 1 ? t($locale, 'adult') : t($locale, 'adults')}{$bookingStore.children > 0
+						? `, ${$bookingStore.children} ${$bookingStore.children === 1 ? t($locale, 'child') : t($locale, 'children')}`
+						: ''}
 				</span>
-				<span class="summary-item">{$nights} {pluralize($nights, 'Night', 'Nights')}</span>
+				<span class="summary-item"
+					>{$nights}
+					{$nights === 1 ? t($locale, 'night') : t($locale, 'nights')}</span
+				>
 			</div>
 		</div>
 
     
 
 		<div class="rooms-container">
-			<h3 class="rooms-title">{$bookingStore.availableRooms.length} {pluralize($bookingStore.availableRooms.length, 'Villa', 'Villas')} Available</h3>
+			<h3 class="rooms-title">{villasAvailablePhrase($locale, $bookingStore.availableRooms.length)}</h3>
 			<div class="rooms-grid">
 				{#each $bookingStore.availableRooms as room}
-					<RoomCardCompact {room} nights={$nights} onSelect={handleSelectRoom} />
+					<RoomCardCompact language={$locale} {room} nights={$nights} onSelect={handleSelectRoom} />
 				{/each}
 			</div>
 		</div>
@@ -589,10 +607,14 @@
 					</svg>
 				</div>
 				<div class="payment-error-content">
-					<strong>Payment could not be processed</strong>
+					<strong>{t($locale, 'paymentFailedTitle')}</strong>
 					<p>{$bookingStore.error}</p>
 				</div>
-				<button class="payment-error-dismiss" onclick={() => bookingStore.clearError()} aria-label="Dismiss error">
+				<button
+					class="payment-error-dismiss"
+					onclick={() => bookingStore.clearError()}
+					aria-label={t($locale, 'dismissError')}
+				>
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<line x1="18" y1="6" x2="6" y2="18"/>
 						<line x1="6" y1="6" x2="18" y2="18"/>
@@ -604,35 +626,52 @@
 		<!-- Compact Reservation Summary -->
 		<div class="payment-summary-card">
 			<div class="payment-summary-top">
-				<h3 class="payment-summary-title">Reservation Summary</h3>
+				<h3 class="payment-summary-title">{t($locale, 'reservationSummary')}</h3>
 				<button class="edit-details-link" onclick={goBackToDetails}>
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
 						<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
 						<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
 					</svg>
-					Edit
+					{t($locale, 'edit')}
 				</button>
 			</div>
 			<div class="payment-summary-grid">
 				<div class="payment-summary-item">
-					<span class="psi-label">Room</span>
-					<span class="psi-value">{$bookingStore.selectedRoom.roomTypeName.en}</span>
+					<span class="psi-label">{t($locale, 'labelRoom')}</span>
+					<span class="psi-value"
+						>{$locale === 'es'
+							? $bookingStore.selectedRoom.roomTypeName.es
+							: $bookingStore.selectedRoom.roomTypeName.en}</span
+					>
 				</div>
 				<div class="payment-summary-item">
-					<span class="psi-label">Dates</span>
-					<span class="psi-value">{formatLocalDateShort($bookingStore.checkIn)} — {formatLocalDateShort($bookingStore.checkOut)} · {$nights} {pluralize($nights, 'night', 'nights')}</span>
+					<span class="psi-label">{t($locale, 'labelDates')}</span>
+					<span class="psi-value"
+						>{formatLocalDateForLang($bookingStore.checkIn, $locale, 'short')} — {formatLocalDateForLang(
+							$bookingStore.checkOut,
+							$locale,
+							'short'
+						)}
+						· {$nights}
+						{$nights === 1 ? t($locale, 'night') : t($locale, 'nights')}</span
+					>
 				</div>
 				<div class="payment-summary-item">
-					<span class="psi-label">Guest</span>
+					<span class="psi-label">{t($locale, 'labelGuest')}</span>
 					<span class="psi-value">{$bookingStore.guests[0]?.firstName} {$bookingStore.guests[0]?.lastName}</span>
 				</div>
 				<div class="payment-summary-item">
-					<span class="psi-label">Guests</span>
-					<span class="psi-value">{$bookingStore.adults} {pluralize($bookingStore.adults, 'Adult', 'Adults')}{$bookingStore.children > 0 ? `, ${$bookingStore.children} ${pluralize($bookingStore.children, 'Child', 'Children')}` : ''}</span>
+					<span class="psi-label">{t($locale, 'labelGuests')}</span>
+					<span class="psi-value"
+						>{$bookingStore.adults}
+						{$bookingStore.adults === 1 ? t($locale, 'adult') : t($locale, 'adults')}{$bookingStore.children > 0
+							? `, ${$bookingStore.children} ${$bookingStore.children === 1 ? t($locale, 'child') : t($locale, 'children')}`
+							: ''}</span
+					>
 				</div>
 			</div>
 			<div class="payment-summary-total-row">
-				<span class="pst-label">Total</span>
+				<span class="pst-label">{t($locale, 'labelTotal')}</span>
 				<span class="pst-amount">{formatCurrency($bookingStore.selectedRoom.rates[$bookingStore.selectedRateIndex].amountAfterTax)}</span>
 			</div>
 		</div>
@@ -644,7 +683,7 @@
 					<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
 					<path d="M7 11V7a5 5 0 0 1 10 0v4"/>
 				</svg>
-				Secure payment powered by CyberSource
+				{t($locale, 'securePayment')}
 			</div>
 			<div class="payment-uc-selection" id="uc-payment-selection"></div>
 			<div class="payment-html-container" id="html-container"></div>

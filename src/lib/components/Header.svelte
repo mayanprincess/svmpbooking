@@ -1,47 +1,34 @@
 <script lang="ts">
-	let mobileMenuOpen = $state(false);
+	import { locale, setLocale, t, type Locale } from '$lib/i18n';
+
 	let languageMenuOpen = $state(false);
-	let currentLanguage = $state('EN');
 
-	const languages = [
-		{ code: 'EN', name: 'English' },
-		{ code: 'ES', name: 'Español' },
-		{ code: 'FR', name: 'Français' },
-		{ code: 'DE', name: 'Deutsch' }
+	const languages: { code: Locale; labelKey: 'langNameEn' | 'langNameEs' }[] = [
+		{ code: 'en', labelKey: 'langNameEn' },
+		{ code: 'es', labelKey: 'langNameEs' }
 	];
-
-	function toggleMobileMenu() {
-		mobileMenuOpen = !mobileMenuOpen;
-		if (mobileMenuOpen) {
-			languageMenuOpen = false;
-		}
-	}
 
 	function toggleLanguageMenu() {
 		languageMenuOpen = !languageMenuOpen;
 	}
 
-	function selectLanguage(code: string) {
-		currentLanguage = code;
+	function selectLanguage(code: Locale) {
+		setLocale(code);
 		languageMenuOpen = false;
-		mobileMenuOpen = false;
 	}
 
-	// Close menus when clicking outside
 	$effect(() => {
-		if (!mobileMenuOpen && !languageMenuOpen) return;
+		if (!languageMenuOpen) return;
 
 		function handleClick(e: MouseEvent) {
 			const target = e.target as HTMLElement;
 			if (!target.closest('.header-container')) {
-				mobileMenuOpen = false;
 				languageMenuOpen = false;
 			}
 		}
 
 		function handleEscape(e: KeyboardEvent) {
 			if (e.key === 'Escape') {
-				mobileMenuOpen = false;
 				languageMenuOpen = false;
 			}
 		}
@@ -59,21 +46,20 @@
 <header class="header">
 	<div class="header-container">
 		<div class="header-content">
-			<!-- Logo -->
 			<a href="/" class="logo">
-				<img src="/logomayan.png" alt="Logo" class="logo-img" />
+				<img src="/logomayan.png" alt={t($locale, 'headerLogoAlt')} class="logo-img" />
 				<span class="logo-text">Mayan Princess Booking</span>
 			</a>
 
-			<!-- Right Side: Language & Mobile Menu -->
 			<div class="header-actions">
-				<!-- Language Selector -->
 				<div class="language-selector">
 					<button
+						type="button"
 						class="language-button"
 						onclick={toggleLanguageMenu}
-						aria-label="Select language"
+						aria-label={t($locale, 'langSelect')}
 						aria-expanded={languageMenuOpen}
+						aria-haspopup="listbox"
 					>
 						<svg
 							width="20"
@@ -84,6 +70,7 @@
 							stroke-width="2"
 							stroke-linecap="round"
 							stroke-linejoin="round"
+							aria-hidden="true"
 						>
 							<circle cx="12" cy="12" r="10"></circle>
 							<line x1="2" y1="12" x2="22" y2="12"></line>
@@ -91,7 +78,7 @@
 								d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
 							></path>
 						</svg>
-						<span class="language-code">{currentLanguage}</span>
+						<span class="language-code">{$locale === 'es' ? 'ES' : 'EN'}</span>
 						<svg
 							width="12"
 							height="12"
@@ -99,6 +86,7 @@
 							fill="none"
 							class="chevron"
 							class:open={languageMenuOpen}
+							aria-hidden="true"
 						>
 							<path
 								d="M2 4L6 8L10 4"
@@ -111,22 +99,26 @@
 					</button>
 
 					{#if languageMenuOpen}
-						<div class="language-dropdown">
+						<div class="language-dropdown" role="listbox">
 							{#each languages as lang}
 								<button
+									type="button"
 									class="language-option"
-									class:active={currentLanguage === lang.code}
+									class:active={$locale === lang.code}
 									onclick={() => selectLanguage(lang.code)}
+									role="option"
+									aria-selected={$locale === lang.code}
 								>
-									<span class="lang-code">{lang.code}</span>
-									<span class="lang-name">{lang.name}</span>
-									{#if currentLanguage === lang.code}
+									<span class="lang-code">{lang.code === 'es' ? 'ES' : 'EN'}</span>
+									<span class="lang-name">{t($locale, lang.labelKey)}</span>
+									{#if $locale === lang.code}
 										<svg
 											width="16"
 											height="16"
 											viewBox="0 0 16 16"
 											fill="none"
 											class="check-icon"
+											aria-hidden="true"
 										>
 											<path
 												d="M3 8L6.5 11.5L13 5"
@@ -142,28 +134,8 @@
 						</div>
 					{/if}
 				</div>
-
-				<!-- Menu Button (Always Visible) -->
-				<button
-					class="menu-button"
-					onclick={toggleMobileMenu}
-					aria-label="Toggle menu"
-					aria-expanded={mobileMenuOpen}
-				>
-					<span class="hamburger" class:open={mobileMenuOpen}></span>
-				</button>
 			</div>
 		</div>
-
-		<!-- Navigation Menu -->
-		{#if mobileMenuOpen}
-			<nav class="nav-menu">
-				<a href="/" class="nav-link active">Book</a>
-				<a href="/rooms" class="nav-link">Rooms</a>
-				<a href="/offers" class="nav-link">Offers</a>
-				<a href="/contact" class="nav-link">Contact</a>
-			</nav>
-		{/if}
 	</div>
 </header>
 
@@ -190,7 +162,6 @@
 		height: 72px;
 	}
 
-	/* Logo */
 	.logo {
 		display: flex;
 		align-items: center;
@@ -201,7 +172,6 @@
 		font-size: 1.125rem;
 		letter-spacing: -0.02em;
 		transition: opacity 0.2s;
-		cursor: pointer;
 	}
 
 	.logo:hover {
@@ -218,14 +188,12 @@
 		font-size: 0.9375rem;
 	}
 
-	/* Header Actions */
 	.header-actions {
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
 	}
 
-	/* Language Selector */
 	.language-selector {
 		position: relative;
 	}
@@ -330,98 +298,6 @@
 		margin-left: auto;
 	}
 
-	/* Menu Button (Always Visible) */
-	.menu-button {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 40px;
-		height: 40px;
-		background: none;
-		border: none;
-		cursor: pointer;
-		padding: 0;
-		transition: all 0.2s;
-		border-radius: 8px;
-	}
-
-	.menu-button:hover {
-		background: rgba(24, 52, 83, 0.05);
-	}
-
-	.hamburger {
-		position: relative;
-		width: 24px;
-		height: 2px;
-		background: var(--color-primary);
-		transition: all 0.3s;
-		border-radius: 2px;
-	}
-
-	.hamburger::before,
-	.hamburger::after {
-		content: '';
-		position: absolute;
-		width: 24px;
-		height: 2px;
-		background: var(--color-primary);
-		border-radius: 2px;
-		transition: all 0.3s;
-	}
-
-	.hamburger::before {
-		top: -7px;
-	}
-
-	.hamburger::after {
-		bottom: -7px;
-	}
-
-	.hamburger.open {
-		background: transparent;
-	}
-
-	.hamburger.open::before {
-		top: 0;
-		transform: rotate(45deg);
-	}
-
-	.hamburger.open::after {
-		bottom: 0;
-		transform: rotate(-45deg);
-	}
-
-	/* Navigation Menu */
-	.nav-menu {
-		display: flex;
-		flex-direction: column;
-		border-top: 1px solid rgba(24, 52, 83, 0.08);
-		padding: 1rem 0;
-		animation: slideDown 0.2s ease;
-		background: white;
-	}
-
-	.nav-link {
-		padding: 0.875rem 1rem;
-		color: var(--color-primary);
-		text-decoration: none;
-		font-weight: 500;
-		font-size: 1rem;
-		transition: all 0.2s;
-		border-left: 3px solid transparent;
-	}
-
-	.nav-link:hover {
-		background: rgba(24, 52, 83, 0.05);
-	}
-
-	.nav-link.active {
-		color: var(--color-secondary);
-		border-left-color: var(--color-secondary);
-		background: rgba(197, 165, 111, 0.05);
-	}
-
-	/* Tablet & Desktop */
 	@media (min-width: 768px) {
 		.logo-img {
 			height: 48px;
@@ -450,4 +326,3 @@
 		}
 	}
 </style>
-
