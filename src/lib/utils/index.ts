@@ -27,7 +27,9 @@ export {
 	formatLocalDateShort,
 	calculateNightsBetween,
 	getTodayLocalString,
-	getDateFromToday
+	getDateFromToday,
+	addDaysToLocalDateString,
+	maxLocalDateString
 } from './date-helpers';
 
 export {

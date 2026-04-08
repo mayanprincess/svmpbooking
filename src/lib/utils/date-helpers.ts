@@ -92,3 +92,20 @@ export function getDateFromToday(days: number): string {
 	return `${year}-${month}-${day}`;
 }
 
+/**
+ * Add N calendar days to a YYYY-MM-DD string (local timezone).
+ */
+export function addDaysToLocalDateString(iso: string, days: number): string {
+	const d = parseLocalDate(iso);
+	d.setDate(d.getDate() + days);
+	const year = d.getFullYear();
+	const month = String(d.getMonth() + 1).padStart(2, '0');
+	const day = String(d.getDate()).padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
+/** Latest (max) of two YYYY-MM-DD strings in local time */
+export function maxLocalDateString(a: string, b: string): string {
+	return parseLocalDate(a) >= parseLocalDate(b) ? a : b;
+}
+
