@@ -46,27 +46,26 @@ export const GET: RequestHandler = async ({ url }) => {
 			promoCode: promoCode || undefined
 		});
 
+		const hotelAvail = operaResponse.hotelAvailability?.[0];
+		const roomStays = hotelAvail?.roomStays ?? [];
+
 		console.log('✅ OPERA Response received:', {
-			roomStaysCount: operaResponse.roomStays?.length || 0,
-			hotelId: operaResponse.hotelId,
-			hotelName: operaResponse.hotelName
+			roomStaysCount: roomStays.length,
+			hotelId: hotelAvail?.hotelId,
+			closed: hotelAvail?.closed
 		});
 
-		// Extract unique room type codes from response
+		// Extract unique room type + rate plan codes (same path as opera-client / enrichAvailability)
 		const roomTypesInResponse = new Set<string>();
 		const ratePlansInResponse = new Set<string>();
 
-		if (operaResponse.roomStays) {
-			for (const stay of operaResponse.roomStays) {
-				if (stay.roomType?.roomTypeCode) {
-					roomTypesInResponse.add(stay.roomType.roomTypeCode);
+		for (const stay of roomStays) {
+			for (const rate of stay.roomRates ?? []) {
+				if (rate.roomType) {
+					roomTypesInResponse.add(rate.roomType);
 				}
-				if (stay.ratePlans) {
-					for (const ratePlan of stay.ratePlans) {
-						if (ratePlan.ratePlanCode) {
-							ratePlansInResponse.add(ratePlan.ratePlanCode);
-						}
-					}
+				if (rate.ratePlanCode) {
+					ratePlansInResponse.add(rate.ratePlanCode);
 				}
 			}
 		}
@@ -108,7 +107,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		return json({
 			debug: true,
 			summary: {
-				totalRoomStays: operaResponse.roomStays?.length || 0,
+				totalRoomStays: roomStays.length,
 				uniqueRoomTypes: roomTypesInResponse.size,
 				uniqueRatePlans: ratePlansInResponse.size,
 				matchingRoomTypes: matchingRoomTypes.length,

@@ -76,6 +76,10 @@ OPERA_DEFAULT_RATE_PLAN_CODE=AIF-2025
 
 # Queue Configuration
 QUEUE_CONNECTION=sync
+
+# SEO (optional — set in production so canonical URLs, sitemap, and Open Graph point to your live booking domain)
+# PUBLIC_SITE_URL=https://booking.mayanprincess.com
+# PUBLIC_OG_IMAGE_URL=https://www.mayanprincess.com/path/to/share-image.jpg
 ```
 
 ### 3. Configuration
