@@ -76,8 +76,6 @@
 	function onCheckInChanged() {
 		if (checkIn) {
 			activeField = 'checkOut';
-			// Move user toward selecting return date without forcing hidden behavior.
-			setTimeout(() => checkOutInput?.focus(), 40);
 		}
 	}
 
