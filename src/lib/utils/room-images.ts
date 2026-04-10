@@ -20,19 +20,20 @@ export interface RoomImage {
 const DEFAULT_ROOM_IMAGE_COUNT = 5;
 
 const ROOM_IMAGE_COUNTS: Record<string, number> = {
+	'1BT': 5,
 	'1BBFG': 5,
 	'1BBFS': 5,
 	'1BGS': 5,
 	'1BPTG': 10,
 	'1BPG': 5,
+	'1DLX': 5,
+	'2DLX': 9,
 	'2BMS': 5,
 	'2BMSS': 5,
-	'1BT': 5,
 	'2BT': 5,
 	'2BJS': 5,
-	'2BBFM': 12,
-	'2DLX': 9,
-	FS: 11
+	SF: 11,
+	'2BBFM': 12
 };
 
 /**
