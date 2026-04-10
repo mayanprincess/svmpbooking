@@ -31,7 +31,8 @@ const ROOM_IMAGE_COUNTS: Record<string, number> = {
 	'2BT': 5,
 	'2BJS': 5,
 	'2BBFM': 12,
-	'2DLX': 9
+	'2DLX': 9,
+	FS: 11
 };
 
 /**
