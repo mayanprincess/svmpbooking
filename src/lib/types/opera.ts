@@ -13,6 +13,7 @@ export interface RoomTypeConfig {
 	location: string;
 	view: 'ocean' | 'garden' | 'pool';
 	sortOrder: number;
+	hidden?: boolean;
 }
 
 // Rate Plan Configuration

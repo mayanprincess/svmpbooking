@@ -59,6 +59,12 @@ export function enrichAvailability(
 	for (const [roomTypeCode, rates] of roomTypeMap) {
 		const roomConfig = operaStaticConfig.roomTypes[roomTypeCode as keyof typeof operaStaticConfig.roomTypes];
 
+		// Skip hidden room types
+		if (roomConfig && 'hidden' in roomConfig && roomConfig.hidden) {
+			console.log(`🙈 ENRICHMENT: Skipping hidden room type: ${roomTypeCode}`);
+			continue;
+		}
+
 		// Skip if we don't have configuration for this room type
 		if (!roomConfig) {
 			console.warn(`❌ ENRICHMENT: No configuration found for room type: ${roomTypeCode}`);
