@@ -29,52 +29,54 @@
 	let inputElement: HTMLInputElement;
 	let isOpen = $state(false);
 
-	onMount(async () => {
-		// Dynamically import Flatpickr (code splitting)
-		const Flatpickr = (await import('flatpickr')).default;
-		
-		// Import Flatpickr CSS
-		await import('flatpickr/dist/flatpickr.min.css');
+	onMount(() => {
+		let cancelled = false;
 
-		// Initialize Flatpickr
-		flatpickrInstance = Flatpickr(inputElement, {
-			mode: 'range',
-			minDate: minDate,
-			dateFormat: 'Y-m-d',
-			altInput: true,
-			altFormat: 'M j, Y',
-			showMonths: window.innerWidth > 768 ? 2 : 1,
-			inline: false,
-			disable: disabled ? [() => true] : [],
-			onChange: (selectedDates) => {
-				if (selectedDates.length === 2) {
-					checkIn = Flatpickr.formatDate(selectedDates[0], 'Y-m-d');
-					checkOut = Flatpickr.formatDate(selectedDates[1], 'Y-m-d');
-					
-					if (onchange) {
-						onchange(checkIn, checkOut);
+		void (async () => {
+			const Flatpickr = (await import('flatpickr')).default;
+			await import('flatpickr/dist/flatpickr.min.css');
+			if (cancelled) return;
+
+			flatpickrInstance = Flatpickr(inputElement, {
+				mode: 'range',
+				minDate: minDate,
+				dateFormat: 'Y-m-d',
+				altInput: true,
+				altFormat: 'M j, Y',
+				showMonths: window.innerWidth > 768 ? 2 : 1,
+				inline: false,
+				disable: disabled ? [() => true] : [],
+				onChange: (selectedDates) => {
+					if (selectedDates.length === 2) {
+						checkIn = Flatpickr.formatDate(selectedDates[0], 'Y-m-d');
+						checkOut = Flatpickr.formatDate(selectedDates[1], 'Y-m-d');
+
+						if (onchange) {
+							onchange(checkIn, checkOut);
+						}
 					}
+				},
+				onOpen: () => {
+					isOpen = true;
+				},
+				onClose: () => {
+					isOpen = false;
+				},
+				locale: {
+					firstDayOfWeek: 0,
+					rangeSeparator: ' → '
 				}
-			},
-			onOpen: () => {
-				isOpen = true;
-			},
-			onClose: () => {
-				isOpen = false;
-			},
-			locale: {
-				firstDayOfWeek: 0, // Sunday
-				rangeSeparator: ' → '
-			}
-		});
+			});
 
-		// Set initial dates if provided
-		if (checkIn && checkOut) {
-			flatpickrInstance.setDate([checkIn, checkOut]);
-		}
+			if (checkIn && checkOut) {
+				flatpickrInstance.setDate([checkIn, checkOut]);
+			}
+		})();
 
 		return () => {
+			cancelled = true;
 			flatpickrInstance?.destroy();
+			flatpickrInstance = null;
 		};
 	});
 

@@ -4,11 +4,15 @@
 	 * Collects guest information for reservation
 	 */
 
+	import { onMount } from 'svelte';
 	import type { EnrichedRoomAvailability } from '$lib/types/opera';
 	import { validateEmail, validatePhone, validateRequired } from '$lib/utils/validation';
 	import { formatCurrency, pluralize } from '$lib/utils/formatting';
 	import { formatLocalDateShort } from '$lib/utils/date-helpers';
 	import { scrollToFirstError } from '$lib/utils/scroll';
+	import { authStore } from '$lib/stores/auth.svelte';
+	import { isPortalProfileComplete } from '$lib/utils/portal-profile';
+	import { locale, t } from '$lib/i18n';
 	import Button from './shared/Button.svelte';
 
 	interface Guest {
@@ -35,23 +39,54 @@
 
 	let { room, adults, children, checkIn, checkOut, nights, selectedRate, loading = false, onSubmit, onBack }: Props = $props();
 
-	// Initialize guests array
 	let guests = $state<Guest[]>([]);
 	let errors = $state<Record<string, string>>({});
 	let touched = $state<Record<string, boolean>>({});
 
-	// Initialize guests only once
-	$effect(() => {
-		if (guests.length === 0) {
-			guests = Array.from({ length: adults + children }, (_, index) => ({
-				firstName: '',
-				lastName: '',
-				nationalId: '',
-				email: index === 0 ? '' : undefined,
-				phone: index === 0 ? '' : undefined,
-				isMainContact: index === 0
-			}));
+	/** Primary contact source when logged in */
+	let contactMode = $state<'saved' | 'new'>('new');
+
+	const profileReady = $derived(isPortalProfileComplete(authStore.user));
+
+	onMount(() => {
+		authStore.init();
+		if (isPortalProfileComplete(authStore.user)) {
+			contactMode = 'saved';
 		}
+	});
+
+	$effect(() => {
+		if (!profileReady && contactMode === 'saved') {
+			contactMode = 'new';
+		}
+	});
+
+	$effect(() => {
+		const n = adults + children;
+		const u = authStore.user;
+		const useSaved = contactMode === 'saved' && profileReady && u;
+
+		const rows: Guest[] = Array.from({ length: n }, (_, index) => ({
+			firstName: '',
+			lastName: '',
+			nationalId: '',
+			email: index === 0 ? '' : undefined,
+			phone: index === 0 ? '' : undefined,
+			isMainContact: index === 0
+		}));
+
+		if (useSaved && u) {
+			rows[0] = {
+				firstName: u.first_name,
+				lastName: u.last_name,
+				nationalId: (u.national_id ?? '').trim(),
+				email: u.email,
+				phone: (u.phone ?? '').trim(),
+				isMainContact: true
+			};
+		}
+
+		guests = rows;
 	});
 
 	function validateGuest(index: number): boolean {
@@ -258,6 +293,31 @@
 			<h3>Guest Information</h3>
 			<p>Please provide details for all guests staying in this room</p>
 		</div>
+
+		{#if authStore.isAuthenticated}
+			<div class="contact-source-panel">
+				{#if profileReady}
+					<fieldset class="contact-source-fieldset">
+						<legend class="contact-source-legend">{t($locale, 'bookingContactChoiceTitle')}</legend>
+						<div class="contact-source-options">
+							<label class="contact-source-label">
+								<input type="radio" name="contactMode" value="saved" bind:group={contactMode} />
+								<span>{t($locale, 'bookingUseSavedProfile')}</span>
+							</label>
+							<label class="contact-source-label">
+								<input type="radio" name="contactMode" value="new" bind:group={contactMode} />
+								<span>{t($locale, 'bookingUseNewContact')}</span>
+							</label>
+						</div>
+					</fieldset>
+				{:else}
+					<div class="contact-source-incomplete" role="status">
+						<p>{t($locale, 'bookingProfileIncompleteHint')}</p>
+						<a href="/portal#perfil" class="contact-source-link">{t($locale, 'bookingCompleteProfileLink')}</a>
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		{#each guests as guest, index}
 			<div class="guest-section">
@@ -629,6 +689,72 @@
 		font-size: 0.9375rem;
 		color: #6b7280;
 		margin: 0;
+	}
+
+	.contact-source-panel {
+		margin: -0.5rem 0 1.75rem;
+		padding: 1.1rem 1.25rem;
+		border-radius: 10px;
+		border: 1px solid rgba(24, 52, 83, 0.12);
+		background: linear-gradient(135deg, rgba(197, 165, 111, 0.08) 0%, rgba(24, 52, 83, 0.04) 100%);
+	}
+
+	.contact-source-fieldset {
+		border: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	.contact-source-legend {
+		font-size: 0.8rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		color: var(--color-primary);
+		margin-bottom: 0.75rem;
+		padding: 0;
+	}
+
+	.contact-source-options {
+		display: flex;
+		flex-direction: column;
+		gap: 0.65rem;
+	}
+
+	@media (min-width: 560px) {
+		.contact-source-options {
+			flex-direction: row;
+			flex-wrap: wrap;
+			gap: 1rem 1.5rem;
+		}
+	}
+
+	.contact-source-label {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		font-size: 0.92rem;
+		color: #374151;
+		cursor: pointer;
+		line-height: 1.4;
+	}
+
+	.contact-source-label input {
+		margin-top: 0.2rem;
+		accent-color: var(--color-primary);
+	}
+
+	.contact-source-incomplete p {
+		margin: 0 0 0.65rem;
+		font-size: 0.9rem;
+		line-height: 1.5;
+		color: #4b5563;
+	}
+
+	.contact-source-link {
+		font-size: 0.88rem;
+		font-weight: 600;
+		color: var(--color-secondary);
 	}
 
 	/* Guest Section */

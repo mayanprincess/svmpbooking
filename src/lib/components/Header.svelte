@@ -37,10 +37,14 @@
 			}
 		}
 
-		document.addEventListener('click', handleClick);
-		document.addEventListener('keydown', handleEscape);
+		/* Defer so the same click that opens the menu does not hit document and close it */
+		const id = window.setTimeout(() => {
+			document.addEventListener('click', handleClick);
+			document.addEventListener('keydown', handleEscape);
+		}, 0);
 
 		return () => {
+			clearTimeout(id);
 			document.removeEventListener('click', handleClick);
 			document.removeEventListener('keydown', handleEscape);
 		};
@@ -62,10 +66,11 @@
 						<span class="portal-avatar">
 							{authStore.user?.first_name?.charAt(0).toUpperCase()}{authStore.user?.last_name?.charAt(0).toUpperCase()}
 						</span>
-						<span class="portal-label">Mi cuenta</span>
+						<span class="portal-label">{t($locale, 'portalAccount')}</span>
 					</a>
 				{:else}
-					<a href="/auth/login" class="portal-link login">Iniciar sesión</a>
+					<a href="/auth/register" class="portal-link register">{t($locale, 'portalRegister')}</a>
+					<a href="/auth/login" class="portal-link login">{t($locale, 'portalLogin')}</a>
 				{/if}
 
 				<!-- Language Selector -->
@@ -242,6 +247,18 @@
 		background: #1a3d5d;
 		border-color: #1a3d5d;
 		color: white;
+	}
+
+	.portal-link.register {
+		background: transparent;
+		color: var(--color-primary);
+		border-color: rgba(24, 52, 83, 0.25);
+	}
+
+	.portal-link.register:hover {
+		border-color: var(--color-secondary);
+		color: var(--color-secondary);
+		background: rgba(197, 165, 111, 0.08);
 	}
 
 	.portal-avatar {
