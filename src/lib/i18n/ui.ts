@@ -87,7 +87,14 @@ const copy = {
 		portalViewAll: 'View all',
 		portalEmptyReservations: 'You do not have any reservations on file yet.',
 		portalReserveNow: 'Book now',
-		portalReservationsSoon: 'Reservation history will appear here when connected to Opera.',
+		portalReservationsSoon:
+			'Only stays booked while signed in with your account appear here.',
+		portalReservationsLoading: 'Loading reservations…',
+		portalReservationsLoadError: 'We could not load your reservations. Try again later.',
+		portalReservationConfirmation: 'Confirmation',
+		portalReservationPaid: 'Paid',
+		portalReservationUnpaid: 'Pending payment',
+		portalRetry: 'Retry',
 		portalProfileTicketsTitle: 'Details for tickets & confirmation',
 		portalProfileTicketsBody:
 			'These fields must match travel documents. They are used when you choose “Use my saved profile” during booking.',
@@ -205,7 +212,13 @@ const copy = {
 		portalEmptyReservations: 'Aún no tienes reservaciones registradas.',
 		portalReserveNow: 'Reservar ahora',
 		portalReservationsSoon:
-			'El historial de reservas aparecerá aquí al conectar con Opera.',
+			'Solo aparecen estadías reservadas con tu cuenta iniciada.',
+		portalReservationsLoading: 'Cargando reservas…',
+		portalReservationsLoadError: 'No pudimos cargar tus reservas. Intenta más tarde.',
+		portalReservationConfirmation: 'Confirmación',
+		portalReservationPaid: 'Pagado',
+		portalReservationUnpaid: 'Pago pendiente',
+		portalRetry: 'Reintentar',
 		portalProfileTicketsTitle: 'Datos para boletos y confirmación',
 		portalProfileTicketsBody:
 			'Deben coincidir con el documento de viaje. Se usan al elegir «Usar mis datos guardados» al reservar.',

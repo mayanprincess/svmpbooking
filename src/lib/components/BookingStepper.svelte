@@ -18,6 +18,7 @@
 	import Button from './shared/Button.svelte';
 	import type { EnrichedRoomAvailability } from '$lib/types/opera';
 	import { bookingStore, nights, completeBookingData } from '$lib/stores';
+	import { authStore } from '$lib/stores/auth.svelte';
 	import { formatCurrency } from '$lib/utils/formatting';
 	import { formatLocalDateForLang } from '$lib/utils/date-helpers';
 	import { scrollToElement, scrollToTop, scrollToTopInstant } from '$lib/utils/scroll';
@@ -342,9 +343,15 @@
 				specialRequests: undefined
 			};
 
+			const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+			const token = authStore.accessToken;
+			if (token) {
+				headers['Authorization'] = `Bearer ${token}`;
+			}
+
 			const response = await fetch('/api/reservation', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers,
 				body: JSON.stringify(body)
 			});
 

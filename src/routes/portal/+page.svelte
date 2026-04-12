@@ -12,8 +12,13 @@
 		toE164
 	} from '$lib/utils/phone-regional';
 	import { locale, setLocale, t, type Locale } from '$lib/i18n';
+	import type { UserReservationMine } from '$lib/types/user-reservation';
+	import { formatLocalDateForLang } from '$lib/utils/date-helpers';
 
 	let ready = $state(false);
+	let mineReservations = $state<UserReservationMine[]>([]);
+	let mineLoading = $state(false);
+	let mineError = $state('');
 	let profileFirstName = $state('');
 	let profileLastName = $state('');
 	let profileNationalId = $state('');
@@ -26,7 +31,37 @@
 
 	const pointsLocale = $derived($locale === 'es' ? 'es-HN' : 'en-US');
 
-	onMount(() => {
+	async function loadMyReservations() {
+		const token = authStore.accessToken;
+		if (!token) {
+			mineReservations = [];
+			return;
+		}
+		mineLoading = true;
+		mineError = '';
+		try {
+			const r = await fetch('/api/reservations/mine?limit=50', {
+				headers: { Authorization: `Bearer ${token}` }
+			});
+			if (!r.ok) {
+				mineError = t($locale, 'portalReservationsLoadError');
+				return;
+			}
+			const data: unknown = await r.json();
+			const list = Array.isArray(data)
+				? data
+				: typeof data === 'object' && data !== null && 'data' in data
+					? (data as { data: unknown }).data
+					: [];
+			mineReservations = Array.isArray(list) ? (list as UserReservationMine[]) : [];
+		} catch {
+			mineError = t($locale, 'portalReservationsLoadError');
+		} finally {
+			mineLoading = false;
+		}
+	}
+
+	onMount(async () => {
 		authStore.init();
 		const u = authStore.user;
 		if (u) {
@@ -39,7 +74,9 @@
 		ready = true;
 		if (!authStore.isAuthenticated) {
 			goto(`/auth/login?redirect=${encodeURIComponent('/portal')}`, { replaceState: true });
+			return;
 		}
+		await loadMyReservations();
 	});
 
 	function logoutAndLeave() {
@@ -317,17 +354,61 @@
 						<h2 class="recent-title">{t($locale, 'portalRecentTitle')}</h2>
 						<span class="recent-link">{t($locale, 'portalViewAll')} →</span>
 					</div>
-					<div class="recent-empty">
-						<div class="recent-empty-icon" aria-hidden="true">
-							<svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-								<rect x="4" y="5" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
-								<path d="M8 3v4M16 3v4M4 11h16" stroke="currentColor" stroke-width="1.5" />
-							</svg>
+					{#if mineLoading}
+						<div class="recent-empty recent-empty--muted" role="status">
+							<p class="recent-msg">{t($locale, 'portalReservationsLoading')}</p>
 						</div>
-						<p class="recent-msg">{t($locale, 'portalEmptyReservations')}</p>
-						<p class="recent-hint">{t($locale, 'portalReservationsSoon')}</p>
-						<a href="/" class="recent-cta">{t($locale, 'portalReserveNow')}</a>
-					</div>
+					{:else if mineError}
+						<div class="recent-empty recent-empty--warn">
+							<p class="recent-msg">{mineError}</p>
+							<button type="button" class="recent-retry" onclick={() => loadMyReservations()}>
+								{t($locale, 'portalRetry')}
+							</button>
+						</div>
+					{:else if mineReservations.length === 0}
+						<div class="recent-empty">
+							<div class="recent-empty-icon" aria-hidden="true">
+								<svg width="40" height="40" viewBox="0 0 24 24" fill="none">
+									<rect x="4" y="5" width="16" height="16" rx="2" stroke="currentColor" stroke-width="1.5" />
+									<path d="M8 3v4M16 3v4M4 11h16" stroke="currentColor" stroke-width="1.5" />
+								</svg>
+							</div>
+							<p class="recent-msg">{t($locale, 'portalEmptyReservations')}</p>
+							<p class="recent-hint">{t($locale, 'portalReservationsSoon')}</p>
+							<a href="/" class="recent-cta">{t($locale, 'portalReserveNow')}</a>
+						</div>
+					{:else}
+						<ul class="recent-list">
+							{#each mineReservations as r (r.id)}
+								<li class="recent-item">
+									<div class="recent-item-main">
+										<p class="recent-item-confirm">
+											{t($locale, 'portalReservationConfirmation')} ·
+											<strong>{r.confirmationNumber ?? String(r.id)}</strong>
+										</p>
+										<p class="recent-item-dates">
+											{t($locale, 'labelDates')}: {r.checkIn
+												? formatLocalDateForLang(String(r.checkIn), $locale)
+												: '—'}
+											→
+											{r.checkOut
+												? formatLocalDateForLang(String(r.checkOut), $locale)
+												: '—'}
+										</p>
+									</div>
+									<span
+										class="recent-item-paid"
+										class:recent-item-paid--yes={r.isPaid === true}
+										class:recent-item-paid--no={r.isPaid !== true}
+									>
+										{r.isPaid === true
+											? t($locale, 'portalReservationPaid')
+											: t($locale, 'portalReservationUnpaid')}
+									</span>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				</section>
 
 				<section class="profile-card" id="perfil">
@@ -916,6 +997,96 @@
 	.recent-cta:hover {
 		filter: brightness(1.08);
 		color: #fff !important;
+	}
+
+	.recent-empty--muted {
+		border-style: solid;
+		border-color: rgba(24, 52, 83, 0.1);
+	}
+
+	.recent-empty--warn {
+		border-style: solid;
+		border-color: rgba(180, 90, 50, 0.35);
+		background: rgba(255, 248, 245, 0.9);
+	}
+
+	.recent-retry {
+		margin-top: 0.75rem;
+		padding: 0.5rem 1.1rem;
+		border-radius: 0.45rem;
+		border: 1px solid rgba(24, 52, 83, 0.2);
+		background: #fff;
+		color: var(--pd-navy, #183453);
+		font-size: 0.85rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.recent-retry:hover {
+		border-color: var(--pd-gold, #c5a56f);
+	}
+
+	.recent-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.65rem;
+	}
+
+	.recent-item {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.75rem 1rem;
+		padding: 1rem 1.15rem;
+		background: #fff;
+		border-radius: 0.85rem;
+		border: 1px solid rgba(24, 52, 83, 0.08);
+	}
+
+	.recent-item-main {
+		min-width: 0;
+		flex: 1;
+	}
+
+	.recent-item-confirm {
+		margin: 0 0 0.35rem;
+		font-size: 0.88rem;
+		color: var(--pd-muted, #5c6b7a);
+	}
+
+	.recent-item-confirm strong {
+		color: var(--pd-navy, #183453);
+		font-weight: 600;
+	}
+
+	.recent-item-dates {
+		margin: 0;
+		font-size: 0.9rem;
+		color: var(--pd-navy, #183453);
+	}
+
+	.recent-item-paid {
+		flex-shrink: 0;
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		padding: 0.35rem 0.55rem;
+		border-radius: 0.35rem;
+	}
+
+	.recent-item-paid--yes {
+		background: rgba(46, 125, 80, 0.12);
+		color: #1b5e20;
+	}
+
+	.recent-item-paid--no {
+		background: rgba(197, 165, 111, 0.18);
+		color: #7a5c20;
 	}
 
 	.profile-section-kicker {

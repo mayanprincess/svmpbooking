@@ -108,18 +108,22 @@ export const POST: RequestHandler = async ({ request }) => {
       specialRequests: body.specialRequests,
     };
 
-    console.log(reservationRequest);
-
-		// Call OPERA API
+		// Call backend (links reservation to user when Authorization: Bearer is sent)
 		if (!config.backendUrl) {
 			throw error(500, 'BACKEND_URL is not configured');
 		}
 
+		const forwardHeaders: Record<string, string> = {
+			'Content-Type': 'application/json'
+		};
+		const auth = request.headers.get('authorization');
+		if (auth) {
+			forwardHeaders['Authorization'] = auth;
+		}
+
 		const response = await fetch(`${config.backendUrl}/reservations`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json'
-			},
+			headers: forwardHeaders,
 			body: JSON.stringify(reservationRequest)
 		});
 
