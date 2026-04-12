@@ -8,6 +8,8 @@ export type ApiUserProfile = {
 	last_name: string;
 	phone: string;
 	country: string;
+	/** Present when API persists ID from registration / profile */
+	national_id?: string | null;
 	is_verified: boolean;
 	tier: string;
 	total_points: number;
@@ -39,6 +41,6 @@ export function mapProfileToPortal(
 		membership_tier: formatTierLabel(p.tier),
 		reservation_count: 0,
 		account_verified: p.is_verified,
-		national_id: extras?.national_id?.trim() ?? ''
+		national_id: (p.national_id ?? extras?.national_id ?? '').trim()
 	};
 }

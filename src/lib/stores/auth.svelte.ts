@@ -153,7 +153,8 @@ export const authStore = {
 			first_name: payload.first_name,
 			last_name: payload.last_name,
 			phone: payload.phone,
-			country: payload.country
+			country: payload.country,
+			national_id: payload.national_id.trim()
 		});
 		const tokens = await flow.postLogin(payload.email, payload.password);
 		accessToken = tokens.access_token;

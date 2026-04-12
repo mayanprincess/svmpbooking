@@ -83,6 +83,8 @@ export async function postRegister(body: {
 	last_name: string;
 	phone: string;
 	country: string;
+	/** National ID / passport — backend accepts snake_case or camelCase */
+	national_id: string;
 }): Promise<void> {
 	const res = await fetch('/api/auth/register', {
 		method: 'POST',
