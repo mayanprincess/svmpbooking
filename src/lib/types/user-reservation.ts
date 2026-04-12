@@ -6,4 +6,7 @@ export type UserReservationMine = {
 	checkIn?: string | null;
 	checkOut?: string | null;
 	isPaid?: boolean | null;
+	/** Backend may nest guest or use snake_case on the root */
+	guest?: Record<string, unknown> | null;
+	roomTypeCode?: string | null;
 };

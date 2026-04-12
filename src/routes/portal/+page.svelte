@@ -14,6 +14,10 @@
 	import { locale, setLocale, t, type Locale } from '$lib/i18n';
 	import type { UserReservationMine } from '$lib/types/user-reservation';
 	import { formatLocalDateForLang } from '$lib/utils/date-helpers';
+	import {
+		reservationGuestLine,
+		reservationRoomLine
+	} from '$lib/utils/user-reservation-display';
 
 	let ready = $state(false);
 	let mineReservations = $state<UserReservationMine[]>([]);
@@ -30,6 +34,19 @@
 	const profileComplete = $derived(isPortalProfileComplete(authStore.user));
 
 	const pointsLocale = $derived($locale === 'es' ? 'es-HN' : 'en-US');
+
+	const recentPreviewLimit = 3;
+	const previewReservations = $derived(mineReservations.slice(0, recentPreviewLimit));
+
+	let reservationsDialog = $state<HTMLDialogElement | null>(null);
+
+	function openReservationsPanel() {
+		reservationsDialog?.showModal();
+	}
+
+	function closeReservationsPanel() {
+		reservationsDialog?.close();
+	}
 
 	const loginRedirectUrl = `/auth/login?redirect=${encodeURIComponent('/portal')}`;
 
@@ -369,7 +386,17 @@
 				<section class="recent" id="reservas">
 					<div class="recent-head">
 						<h2 class="recent-title">{t($locale, 'portalRecentTitle')}</h2>
-						<span class="recent-link">{t($locale, 'portalViewAll')} →</span>
+						{#if mineLoading || mineError || mineReservations.length === 0}
+							<span class="recent-link recent-link--static">{t($locale, 'portalViewAll')} →</span>
+						{:else}
+							<button
+								type="button"
+								class="recent-link recent-link--action"
+								onclick={openReservationsPanel}
+							>
+								{t($locale, 'portalViewAll')} →
+							</button>
+						{/if}
 					</div>
 					{#if mineLoading}
 						<div class="recent-empty recent-empty--muted" role="status">
@@ -396,7 +423,7 @@
 						</div>
 					{:else}
 						<ul class="recent-list">
-							{#each mineReservations as r (r.id)}
+							{#each previewReservations as r (r.id)}
 								<li class="recent-item">
 									<div class="recent-item-main">
 										<p class="recent-item-confirm">
@@ -427,6 +454,94 @@
 						</ul>
 					{/if}
 				</section>
+
+				<dialog
+					class="reservations-dialog"
+					bind:this={reservationsDialog}
+					aria-labelledby="reservations-dialog-title"
+				>
+					<div class="reservations-dialog-surface">
+						<header class="reservations-dialog-head">
+							<div>
+								<h2 id="reservations-dialog-title" class="reservations-dialog-title">
+									{t($locale, 'portalReservationsPanelTitle')}
+								</h2>
+								<p class="reservations-dialog-sub">{t($locale, 'portalReservationsPanelHint')}</p>
+							</div>
+							<button
+								type="button"
+								class="reservations-dialog-close"
+								onclick={closeReservationsPanel}
+								aria-label={t($locale, 'portalClose')}
+							>
+								×
+							</button>
+						</header>
+						<div class="reservations-dialog-body">
+							{#if mineReservations.length === 0}
+								<p class="reservations-dialog-empty">{t($locale, 'portalEmptyReservations')}</p>
+							{:else}
+								<ul class="reservations-dialog-list">
+									{#each mineReservations as r (r.id)}
+										<li class="reservations-dialog-card">
+											<div class="reservations-dialog-card-head">
+												<div>
+													<p class="reservations-dialog-confirm">
+														{t($locale, 'portalReservationConfirmation')}
+														<strong>{r.confirmationNumber ?? String(r.id)}</strong>
+													</p>
+													<p class="reservations-dialog-id">
+														{t($locale, 'portalReservationRecordId')}: {String(r.id)}
+													</p>
+												</div>
+												<span
+													class="recent-item-paid"
+													class:recent-item-paid--yes={r.isPaid === true}
+													class:recent-item-paid--no={r.isPaid !== true}
+												>
+													{r.isPaid === true
+														? t($locale, 'portalReservationPaid')
+														: t($locale, 'portalReservationUnpaid')}
+												</span>
+											</div>
+											<dl class="reservations-dialog-dl">
+												<div class="reservations-dialog-row">
+													<dt>{t($locale, 'labelDates')}</dt>
+													<dd>
+														{r.checkIn
+															? formatLocalDateForLang(String(r.checkIn), $locale)
+															: '—'}
+														<span class="reservations-dialog-sep">→</span>
+														{r.checkOut
+															? formatLocalDateForLang(String(r.checkOut), $locale)
+															: '—'}
+													</dd>
+												</div>
+												{#if reservationGuestLine(r)}
+													<div class="reservations-dialog-row">
+														<dt>{t($locale, 'portalReservationGuest')}</dt>
+														<dd>{reservationGuestLine(r)}</dd>
+													</div>
+												{/if}
+												{#if reservationRoomLine(r)}
+													<div class="reservations-dialog-row">
+														<dt>{t($locale, 'portalReservationRoom')}</dt>
+														<dd>{reservationRoomLine(r)}</dd>
+													</div>
+												{/if}
+											</dl>
+										</li>
+									{/each}
+								</ul>
+							{/if}
+						</div>
+						<footer class="reservations-dialog-foot">
+							<button type="button" class="reservations-dialog-done" onclick={closeReservationsPanel}>
+								{t($locale, 'portalClose')}
+							</button>
+						</footer>
+					</div>
+				</dialog>
 
 				<section class="profile-card" id="perfil">
 					<p class="profile-section-kicker">{t($locale, 'portalProfileTicketsTitle')}</p>
@@ -970,6 +1085,26 @@
 		font-weight: 500;
 	}
 
+	.recent-link--static {
+		opacity: 0.55;
+		cursor: default;
+	}
+
+	.recent-link--action {
+		font: inherit;
+		background: none;
+		border: none;
+		padding: 0;
+		cursor: pointer;
+		text-align: right;
+	}
+
+	.recent-link--action:hover,
+	.recent-link--action:focus-visible {
+		text-decoration: underline;
+		text-underline-offset: 3px;
+	}
+
 	.recent-empty {
 		text-align: center;
 		padding: 2.5rem 1.5rem;
@@ -1104,6 +1239,191 @@
 	.recent-item-paid--no {
 		background: rgba(197, 165, 111, 0.18);
 		color: #7a5c20;
+	}
+
+	.reservations-dialog {
+		border: none;
+		padding: 0;
+		border-radius: 0.9rem;
+		max-width: min(34rem, calc(100vw - 2rem));
+		width: 100%;
+		background: #fff;
+		box-shadow: 0 24px 60px rgba(24, 52, 83, 0.22);
+	}
+
+	.reservations-dialog::backdrop {
+		background: rgba(14, 28, 48, 0.48);
+	}
+
+	.reservations-dialog-surface {
+		display: flex;
+		flex-direction: column;
+		max-height: min(85vh, 720px);
+	}
+
+	.reservations-dialog-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1.25rem 1.25rem 0.75rem;
+		border-bottom: 1px solid rgba(24, 52, 83, 0.08);
+	}
+
+	.reservations-dialog-title {
+		font-family: var(--pd-serif, Georgia, serif);
+		font-size: 1.2rem;
+		font-weight: 600;
+		color: var(--pd-navy, #183453);
+		margin: 0 0 0.35rem;
+	}
+
+	.reservations-dialog-sub {
+		font-size: 0.82rem;
+		color: var(--pd-muted, #5c6b7a);
+		margin: 0;
+		max-width: 42ch;
+		line-height: 1.45;
+	}
+
+	.reservations-dialog-close {
+		flex-shrink: 0;
+		width: 2.25rem;
+		height: 2.25rem;
+		border: none;
+		border-radius: 0.4rem;
+		background: rgba(24, 52, 83, 0.06);
+		color: var(--pd-navy, #183453);
+		font-size: 1.35rem;
+		line-height: 1;
+		cursor: pointer;
+	}
+
+	.reservations-dialog-close:hover {
+		background: rgba(24, 52, 83, 0.1);
+	}
+
+	.reservations-dialog-body {
+		overflow-y: auto;
+		padding: 1rem 1.25rem;
+		flex: 1;
+		min-height: 0;
+	}
+
+	.reservations-dialog-empty {
+		margin: 0;
+		font-size: 0.92rem;
+		color: var(--pd-muted, #5c6b7a);
+		text-align: center;
+		padding: 1rem 0;
+	}
+
+	.reservations-dialog-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.85rem;
+	}
+
+	.reservations-dialog-card {
+		padding: 1rem 1.05rem;
+		background: rgba(255, 255, 255, 0.95);
+		border-radius: 0.75rem;
+		border: 1px solid rgba(24, 52, 83, 0.1);
+	}
+
+	.reservations-dialog-card-head {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 0.65rem 1rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.reservations-dialog-confirm {
+		margin: 0 0 0.25rem;
+		font-size: 0.88rem;
+		color: var(--pd-muted, #5c6b7a);
+	}
+
+	.reservations-dialog-confirm strong {
+		display: inline-block;
+		margin-left: 0.25rem;
+		color: var(--pd-navy, #183453);
+		font-weight: 600;
+	}
+
+	.reservations-dialog-id {
+		margin: 0;
+		font-size: 0.75rem;
+		color: var(--pd-muted, #5c6b7a);
+		font-variant-numeric: tabular-nums;
+	}
+
+	.reservations-dialog-dl {
+		margin: 0;
+	}
+
+	.reservations-dialog-row {
+		display: grid;
+		grid-template-columns: minmax(5.5rem, 7rem) 1fr;
+		gap: 0.35rem 0.75rem;
+		font-size: 0.86rem;
+		padding: 0.4rem 0;
+		border-top: 1px solid rgba(24, 52, 83, 0.06);
+	}
+
+	@media (max-width: 380px) {
+		.reservations-dialog-row {
+			grid-template-columns: 1fr;
+			gap: 0.15rem;
+		}
+	}
+
+	.reservations-dialog-row:first-of-type {
+		border-top: none;
+		padding-top: 0;
+	}
+
+	.reservations-dialog-row dt {
+		margin: 0;
+		font-weight: 600;
+		color: var(--pd-navy, #183453);
+	}
+
+	.reservations-dialog-row dd {
+		margin: 0;
+		color: var(--pd-muted, #5c6b7a);
+		line-height: 1.45;
+	}
+
+	.reservations-dialog-sep {
+		margin: 0 0.35rem;
+		opacity: 0.7;
+	}
+
+	.reservations-dialog-foot {
+		padding: 0.85rem 1.25rem 1.15rem;
+		border-top: 1px solid rgba(24, 52, 83, 0.08);
+	}
+
+	.reservations-dialog-done {
+		width: 100%;
+		padding: 0.65rem 1rem;
+		border-radius: 0.5rem;
+		border: 1px solid rgba(24, 52, 83, 0.15);
+		background: var(--pd-navy, #183453);
+		color: #fff;
+		font-size: 0.9rem;
+		font-weight: 600;
+		cursor: pointer;
+	}
+
+	.reservations-dialog-done:hover {
+		filter: brightness(1.06);
 	}
 
 	.profile-section-kicker {
