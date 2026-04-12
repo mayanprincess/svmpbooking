@@ -10,10 +10,12 @@
 	import { isValidPhoneForCountry, toE164 } from '$lib/utils/phone-regional';
 
 	let error = $state('');
+	let loading = $state(false);
 	let countryCode = $state('HN');
 	let phone = $state('+504 ');
 
 	const MIN_ID_LEN = 3;
+	const MIN_PASSWORD = 8;
 
 	onMount(() => {
 		authStore.init();
@@ -24,7 +26,7 @@
 		}
 	});
 
-	function handleSubmit(e: SubmitEvent) {
+	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
 		error = '';
 		const form = e.target as HTMLFormElement;
@@ -49,11 +51,11 @@
 					: 'Enter a valid email address.';
 			return;
 		}
-		if (password.length < 4) {
+		if (password.length < MIN_PASSWORD) {
 			error =
 				$locale === 'es'
-					? 'La contraseña debe tener al menos 4 caracteres.'
-					: 'Password must be at least 4 characters.';
+					? `La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`
+					: `Password must be at least ${MIN_PASSWORD} characters.`;
 			return;
 		}
 		if (national_id.length < MIN_ID_LEN) {
@@ -73,21 +75,29 @@
 
 		const phoneE164 = toE164(countryCode, phone);
 
-		authStore.login({
-			email,
-			first_name,
-			last_name,
-			phone: phoneE164,
-			national_id,
-			country_code: countryCode,
-			points_balance: 2500,
-			membership_tier: 'Coral Elite',
-			reservation_count: 0,
-			account_verified: false
-		});
-
-		const dest = page.url.searchParams.get('redirect');
-		goto(dest && dest.startsWith('/') ? dest : '/portal', { replaceState: true });
+		loading = true;
+		try {
+			await authStore.signUpThenSignIn({
+				email,
+				password,
+				first_name,
+				last_name,
+				phone: phoneE164,
+				country: countryCode,
+				national_id
+			});
+			const dest = page.url.searchParams.get('redirect');
+			goto(dest && dest.startsWith('/') ? dest : '/portal', { replaceState: true });
+		} catch (err) {
+			error =
+				err instanceof Error
+					? err.message
+					: $locale === 'es'
+						? 'No se pudo crear la cuenta.'
+						: 'Could not create account.';
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 
@@ -148,7 +158,8 @@
 						name="password"
 						autocomplete="new-password"
 						required
-						minlength="4"
+						minlength={MIN_PASSWORD}
+						disabled={loading}
 					/>
 				</label>
 
@@ -173,7 +184,9 @@
 					<p class="err" role="alert">{error}</p>
 				{/if}
 
-				<button type="submit" class="submit">{t($locale, 'registerSubmit')}</button>
+				<button type="submit" class="submit" disabled={loading}>
+					{loading ? '…' : t($locale, 'registerSubmit')}
+				</button>
 			</form>
 
 			<p class="switch">

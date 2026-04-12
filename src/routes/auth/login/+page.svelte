@@ -3,10 +3,13 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Header from '$lib/components/Header.svelte';
-	import { authStore, type PortalUser } from '$lib/stores/auth.svelte';
+	import { authStore } from '$lib/stores/auth.svelte';
 	import { locale, t } from '$lib/i18n';
 
 	let error = $state('');
+	let loading = $state(false);
+
+	const MIN_PASSWORD = 8;
 
 	onMount(() => {
 		authStore.init();
@@ -17,16 +20,7 @@
 		}
 	});
 
-	function parseNameFromEmail(email: string): Pick<PortalUser, 'first_name' | 'last_name'> {
-		const local = email.split('@')[0] ?? 'guest';
-		const parts = local.split(/[._-]+/).filter(Boolean);
-		const cap = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : '');
-		const first = cap(parts[0]?.replace(/\d/g, '') || 'Guest');
-		const last = cap(parts[1]?.replace(/\d/g, '') || 'Member');
-		return { first_name: first, last_name: last };
-	}
-
-	function handleSubmit(e: SubmitEvent) {
+	async function handleSubmit(e: SubmitEvent) {
 		e.preventDefault();
 		error = '';
 		const form = e.target as HTMLFormElement;
@@ -34,29 +28,29 @@
 		const email = String(fd.get('email') ?? '').trim();
 		const password = String(fd.get('password') ?? '');
 
-		if (!email || password.length < 4) {
+		if (!email || password.length < MIN_PASSWORD) {
 			error =
 				$locale === 'es'
-					? 'Introduce un correo válido y al menos 4 caracteres en la contraseña.'
-					: 'Enter a valid email and a password of at least 4 characters.';
+					? `Introduce un correo válido y al menos ${MIN_PASSWORD} caracteres en la contraseña.`
+					: `Enter a valid email and a password of at least ${MIN_PASSWORD} characters.`;
 			return;
 		}
 
-		const names = parseNameFromEmail(email);
-		authStore.login({
-			email,
-			...names,
-			points_balance: 2500,
-			membership_tier: 'Coral Elite',
-			phone: '+50400000000',
-			country_code: 'HN',
-			reservation_count: 0,
-			account_verified: false,
-			national_id: ''
-		});
-
-		const dest = page.url.searchParams.get('redirect');
-		goto(dest && dest.startsWith('/') ? dest : '/portal', { replaceState: true });
+		loading = true;
+		try {
+			await authStore.signInWithPassword(email, password);
+			const dest = page.url.searchParams.get('redirect');
+			goto(dest && dest.startsWith('/') ? dest : '/portal', { replaceState: true });
+		} catch (err) {
+			error =
+				err instanceof Error
+					? err.message
+					: $locale === 'es'
+						? 'No se pudo iniciar sesión.'
+						: 'Could not sign in.';
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 
@@ -72,7 +66,6 @@
 		<div class="panel">
 			<h1 class="h1">{t($locale, 'portalLoginTitle')}</h1>
 			<p class="lead">{t($locale, 'portalLoginSubtitle')}</p>
-			<p class="demo">{t($locale, 'portalLoginDemoHint')}</p>
 
 			<p class="register-hint">
 				{t($locale, 'registerNoAccount')}
@@ -89,6 +82,7 @@
 						autocomplete="username"
 						required
 						placeholder="you@example.com"
+						disabled={loading}
 					/>
 				</label>
 				<label class="field">
@@ -99,7 +93,8 @@
 						name="password"
 						autocomplete="current-password"
 						required
-						minlength="4"
+						minlength={MIN_PASSWORD}
+						disabled={loading}
 					/>
 				</label>
 
@@ -107,7 +102,9 @@
 					<p class="err" role="alert">{error}</p>
 				{/if}
 
-				<button type="submit" class="submit">{t($locale, 'portalLoginSubmit')}</button>
+				<button type="submit" class="submit" disabled={loading}>
+					{loading ? '…' : t($locale, 'portalLoginSubmit')}
+				</button>
 			</form>
 
 			<p class="back">
@@ -153,13 +150,6 @@
 		color: var(--color-gray-dark);
 		font-size: 0.95rem;
 		line-height: 1.5;
-	}
-
-	.demo {
-		font-size: 0.8rem;
-		color: var(--color-gray);
-		margin: 0 0 0.75rem;
-		line-height: 1.45;
 	}
 
 	.register-hint {
@@ -211,6 +201,10 @@
 		box-shadow: 0 0 0 3px rgba(197, 165, 111, 0.2);
 	}
 
+	.input:disabled {
+		opacity: 0.65;
+	}
+
 	.err {
 		color: var(--color-error);
 		font-size: 0.875rem;
@@ -233,9 +227,14 @@
 			box-shadow 0.15s ease;
 	}
 
-	.submit:hover {
+	.submit:hover:not(:disabled) {
 		transform: translateY(-1px);
 		box-shadow: 0 16px 32px rgba(24, 52, 83, 0.28);
+	}
+
+	.submit:disabled {
+		opacity: 0.75;
+		cursor: not-allowed;
 	}
 
 	.back {

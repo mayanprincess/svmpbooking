@@ -1,35 +1,21 @@
 /**
- * Client auth state for the user portal (session persisted in localStorage).
- * Replace login()/payload with your real API when the backend is wired.
+ * Portal auth: JWT session via MP Booking API (proxied through /api/*).
+ * Tokens + profile snapshot in localStorage; national_id is client-only until API supports it.
  */
 
-export type PortalUser = {
-	email: string;
-	first_name: string;
-	last_name: string;
-	/** Reward / loyalty points (demo until API exists) */
-	points_balance: number;
-	membership_tier: string;
-	/** Demo contact phone shown on dashboard */
-	phone?: string;
-	/** Demo: reservations count from API */
-	reservation_count?: number;
-	/** Demo: KYC / email verification */
-	account_verified?: boolean;
-	/** National ID / passport — required for tickets when using saved profile */
-	national_id?: string;
-	/** ISO 3166-1 alpha-2 — country for phone format & ID context */
-	country_code?: string;
-};
+import { mapProfileToPortal } from '$lib/auth/map-profile';
+import * as flow from '$lib/auth/auth-flow';
+import { AUTH_STORAGE_KEY, LEGACY_USER_STORAGE_KEY } from '$lib/auth/constants';
+import type { PortalUser } from '$lib/types/portal-user';
 
-const STORAGE_KEY = 'svmp_portal_user_v1';
+export type { PortalUser };
 
 function normalizeUser(u: PortalUser): PortalUser {
 	return {
 		...u,
 		points_balance: u.points_balance ?? 0,
 		membership_tier: u.membership_tier ?? 'Member',
-		phone: u.phone ?? '+504 0000-0000',
+		phone: u.phone ?? '',
 		reservation_count: u.reservation_count ?? 0,
 		account_verified: u.account_verified ?? false,
 		national_id: u.national_id ?? '',
@@ -37,27 +23,81 @@ function normalizeUser(u: PortalUser): PortalUser {
 	};
 }
 
+type PersistedSession = {
+	accessToken: string;
+	refreshToken: string;
+	user: PortalUser;
+};
+
+let accessToken = $state<string | null>(null);
+let refreshToken = $state<string | null>(null);
 let user = $state<PortalUser | null>(null);
 
-function readStoredUser(): PortalUser | null {
+function readStoredSession(): PersistedSession | null {
 	if (typeof window === 'undefined') return null;
 	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
+		const raw = localStorage.getItem(AUTH_STORAGE_KEY);
 		if (!raw) return null;
-		const parsed = JSON.parse(raw) as PortalUser;
-		if (!parsed?.email || !parsed?.first_name) return null;
-		return normalizeUser(parsed);
+		const parsed = JSON.parse(raw) as PersistedSession;
+		if (!parsed?.accessToken || !parsed?.refreshToken || !parsed?.user?.email) return null;
+		return {
+			accessToken: parsed.accessToken,
+			refreshToken: parsed.refreshToken,
+			user: normalizeUser(parsed.user)
+		};
 	} catch {
 		return null;
 	}
 }
 
-function writeStoredUser(next: PortalUser | null) {
+function writeStoredSession(next: PersistedSession | null) {
 	if (typeof window === 'undefined') return;
 	if (next) {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+		localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
 	} else {
-		localStorage.removeItem(STORAGE_KEY);
+		localStorage.removeItem(AUTH_STORAGE_KEY);
+	}
+}
+
+function clearLegacyDemoStorage() {
+	if (typeof window === 'undefined') return;
+	try {
+		localStorage.removeItem(LEGACY_USER_STORAGE_KEY);
+	} catch {
+		/* ignore */
+	}
+}
+
+function persist(): void {
+	if (!user || !accessToken || !refreshToken) {
+		writeStoredSession(null);
+		return;
+	}
+	writeStoredSession({
+		accessToken,
+		refreshToken,
+		user: normalizeUser(user)
+	});
+}
+
+async function refreshAndPersist(): Promise<boolean> {
+	const rt = refreshToken;
+	if (!rt) return false;
+	try {
+		const tokens = await flow.postRefresh(rt);
+		accessToken = tokens.access_token;
+		refreshToken = tokens.refresh_token;
+		const profile = await flow.getMe(tokens.access_token);
+		const nid = user?.national_id ?? '';
+		user = mapProfileToPortal(profile, { national_id: nid });
+		persist();
+		return true;
+	} catch {
+		accessToken = null;
+		refreshToken = null;
+		user = null;
+		writeStoredSession(null);
+		return false;
 	}
 }
 
@@ -66,30 +106,124 @@ export const authStore = {
 		return user;
 	},
 	get isAuthenticated(): boolean {
-		return user !== null;
+		return user !== null && accessToken !== null;
 	},
-	/**
-	 * Re-sync from localStorage on every call (safe for SPA navigations + HMR).
-	 * A previous version used a one-shot flag that left `user` null while `initDone`
-	 * stayed true → redirect loop between /portal and /auth/login.
-	 */
+	get accessToken(): string | null {
+		return accessToken;
+	},
+
 	init(): void {
 		if (typeof window === 'undefined') return;
-		user = readStoredUser();
+		clearLegacyDemoStorage();
+		const s = readStoredSession();
+		if (s) {
+			accessToken = s.accessToken;
+			refreshToken = s.refreshToken;
+			user = s.user;
+		} else {
+			accessToken = null;
+			refreshToken = null;
+			user = null;
+		}
 	},
+
+	async signInWithPassword(email: string, password: string): Promise<void> {
+		const tokens = await flow.postLogin(email, password);
+		const profile = await flow.getMe(tokens.access_token);
+		accessToken = tokens.access_token;
+		refreshToken = tokens.refresh_token;
+		user = mapProfileToPortal(profile, { national_id: '' });
+		persist();
+	},
+
+	async signUpThenSignIn(
+		payload: {
+			email: string;
+			password: string;
+			first_name: string;
+			last_name: string;
+			phone: string;
+			country: string;
+			national_id: string;
+		}
+	): Promise<void> {
+		await flow.postRegister({
+			email: payload.email,
+			password: payload.password,
+			first_name: payload.first_name,
+			last_name: payload.last_name,
+			phone: payload.phone,
+			country: payload.country
+		});
+		const tokens = await flow.postLogin(payload.email, payload.password);
+		accessToken = tokens.access_token;
+		refreshToken = tokens.refresh_token;
+		const profile = await flow.getMe(tokens.access_token);
+		user = mapProfileToPortal(profile, { national_id: payload.national_id.trim() });
+		persist();
+	},
+
+	async refreshSession(): Promise<boolean> {
+		return refreshAndPersist();
+	},
+
+	/**
+	 * PATCH /users/me — refreshes tokens once on 401.
+	 */
+	async saveProfileToApi(updates: {
+		first_name: string;
+		last_name: string;
+		phone: string;
+		country: string;
+		national_id: string;
+	}): Promise<void> {
+		const at = accessToken;
+		if (!at || !user) {
+			throw new Error('Not signed in');
+		}
+		const body = {
+			first_name: updates.first_name,
+			last_name: updates.last_name,
+			phone: updates.phone,
+			country: updates.country
+		};
+		try {
+			const profile = await flow.patchUsersMe(at, body);
+			user = mapProfileToPortal(profile, { national_id: updates.national_id.trim() });
+			persist();
+		} catch (e) {
+			const st = (e as { status?: number }).status;
+			if (st === 401) {
+				const ok = await refreshAndPersist();
+				if (!ok) throw e;
+				const profile = await flow.patchUsersMe(accessToken!, body);
+				user = mapProfileToPortal(profile, { national_id: updates.national_id.trim() });
+				persist();
+				return;
+			}
+			throw e;
+		}
+	},
+
+	logout(): void {
+		accessToken = null;
+		refreshToken = null;
+		user = null;
+		writeStoredSession(null);
+	},
+
+	/** @deprecated use signInWithPassword — kept for rare direct profile hydration */
 	login(next: PortalUser): void {
 		const n = normalizeUser(next);
 		user = n;
-		writeStoredUser(n);
+		if (accessToken && refreshToken) {
+			persist();
+		}
 	},
-	logout(): void {
-		user = null;
-		writeStoredUser(null);
-	},
-	/** Merge fields into current user and persist (e.g. profile completion in /portal). */
+
 	updateProfile(partial: Partial<PortalUser>): void {
 		if (!user) return;
 		user = normalizeUser({ ...user, ...partial });
-		writeStoredUser(user);
+		persist();
 	}
 };

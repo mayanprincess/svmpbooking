@@ -68,7 +68,7 @@
 		hash === '#reservas' ? 'reservas' : hash === '#perfil' ? 'perfil' : 'dashboard'
 	);
 
-	function saveProfile(e: SubmitEvent) {
+	async function saveProfile(e: SubmitEvent) {
 		e.preventDefault();
 		profileError = '';
 		const fn = profileFirstName.trim();
@@ -87,25 +87,34 @@
 					: 'Check the phone format for your country.';
 			return;
 		}
-		authStore.updateProfile({
-			first_name: fn,
-			last_name: ln,
-			national_id: profileNationalId.trim(),
-			phone: toE164(profileCountry, profilePhone),
-			country_code: profileCountry
-		});
-		const u = authStore.user;
-		if (u) {
-			profileFirstName = u.first_name ?? '';
-			profileLastName = u.last_name ?? '';
-			profileNationalId = u.national_id ?? '';
-			profileCountry = u.country_code ?? profileCountry;
-			profilePhone = displayPhoneFromStored(u.country_code ?? profileCountry, u.phone ?? '');
+		try {
+			await authStore.saveProfileToApi({
+				first_name: fn,
+				last_name: ln,
+				phone: toE164(profileCountry, profilePhone),
+				country: profileCountry,
+				national_id: profileNationalId.trim()
+			});
+			const u = authStore.user;
+			if (u) {
+				profileFirstName = u.first_name ?? '';
+				profileLastName = u.last_name ?? '';
+				profileNationalId = u.national_id ?? '';
+				profileCountry = u.country_code ?? profileCountry;
+				profilePhone = displayPhoneFromStored(u.country_code ?? profileCountry, u.phone ?? '');
+			}
+			profileSaved = true;
+			window.setTimeout(() => {
+				profileSaved = false;
+			}, 4000);
+		} catch (err) {
+			profileError =
+				err instanceof Error
+					? err.message
+					: $locale === 'es'
+						? 'No se pudo guardar el perfil.'
+						: 'Could not save profile.';
 		}
-		profileSaved = true;
-		window.setTimeout(() => {
-			profileSaved = false;
-		}, 4000);
 	}
 </script>
 
