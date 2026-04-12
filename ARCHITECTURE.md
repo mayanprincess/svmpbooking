@@ -432,15 +432,6 @@ Local Machine
 └── http://localhost:5173
 ```
 
-### Production (Vercel)
-```
-Vercel Edge Network
-├── CDN (static assets)
-├── Serverless Functions (API routes)
-├── Environment Variables (secrets)
-└── https://your-domain.com
-```
-
 ### Production (Node.js)
 ```
 Server

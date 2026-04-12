@@ -191,22 +191,6 @@ npm run build
 npm run preview
 ```
 
-#### Deploy to Vercel
-
-```bash
-# Install Vercel CLI
-npm i -g vercel
-
-# Deploy
-vercel
-```
-
-Add environment variables in Vercel dashboard:
-1. Go to Project Settings
-2. Navigate to Environment Variables
-3. Add all OPERA_* variables
-4. Redeploy
-
 #### Deploy to Netlify
 
 ```bash
@@ -225,7 +209,7 @@ Add environment variables in Netlify dashboard:
 
 ## Optional HTTP Basic Auth (staging / dev)
 
-To protect a preview or staging deployment while the site is not public, set in the environment (Vercel, Railway, `.env` locally):
+To protect a preview or staging deployment while the site is not public, set in the environment (hosting provider or `.env` locally):
 
 | Variable | Description |
 |----------|-------------|

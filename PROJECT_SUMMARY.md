@@ -247,21 +247,15 @@ ratePlans: {
 - [x] Error handling complete
 
 ### Deployment Options
-1. **Vercel** (Recommended)
-   - Zero config
-   - Automatic HTTPS
-   - Edge network
-   - Environment variables
+1. **Node.js Server** (adapter-node / Docker)
+   - Full control
+   - Custom configuration
+   - PM2 or container orchestration
 
 2. **Netlify**
    - Easy setup
    - Automatic HTTPS
    - Environment variables
-
-3. **Node.js Server**
-   - Full control
-   - Custom configuration
-   - PM2 process manager
 
 ## 📋 Next Steps (Optional Enhancements)
 

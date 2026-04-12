@@ -1,9 +1,15 @@
-import type { ApiUserProfile } from '$lib/auth/map-profile';
-
 export type TokenPair = {
 	access_token: string;
 	refresh_token: string;
 	token_type?: string;
+};
+
+/** Login JSON: local OpenAPI may return tokens only; production may embed `user` and omit refresh. */
+export type LoginResponse = {
+	access_token: string;
+	refresh_token?: string;
+	token_type?: string;
+	user?: Record<string, unknown>;
 };
 
 export async function readApiErrorMessage(res: Response): Promise<string> {
@@ -42,7 +48,7 @@ function throwHttpError(res: Response, msg: string): never {
 	throw err;
 }
 
-export async function postLogin(email: string, password: string): Promise<TokenPair> {
+export async function postLogin(email: string, password: string): Promise<LoginResponse> {
 	const res = await fetch('/api/auth/login', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json' },
@@ -51,7 +57,7 @@ export async function postLogin(email: string, password: string): Promise<TokenP
 	if (!res.ok) {
 		throwHttpError(res, await readApiErrorMessage(res));
 	}
-	return res.json() as Promise<TokenPair>;
+	return res.json() as Promise<LoginResponse>;
 }
 
 export async function postRefresh(refresh_token: string): Promise<TokenPair> {
@@ -66,14 +72,14 @@ export async function postRefresh(refresh_token: string): Promise<TokenPair> {
 	return res.json() as Promise<TokenPair>;
 }
 
-export async function getMe(access_token: string): Promise<ApiUserProfile> {
+export async function getMe(access_token: string): Promise<unknown> {
 	const res = await fetch('/api/auth/me', {
 		headers: { Authorization: `Bearer ${access_token}` }
 	});
 	if (!res.ok) {
 		throwHttpError(res, await readApiErrorMessage(res));
 	}
-	return res.json() as Promise<ApiUserProfile>;
+	return res.json();
 }
 
 export async function postRegister(body: {
@@ -99,7 +105,7 @@ export async function postRegister(body: {
 export async function patchUsersMe(
 	access_token: string,
 	body: Partial<{ first_name: string; last_name: string; phone: string; country: string }>
-): Promise<ApiUserProfile> {
+): Promise<unknown> {
 	const res = await fetch('/api/users/me', {
 		method: 'PATCH',
 		headers: {
@@ -111,5 +117,5 @@ export async function patchUsersMe(
 	if (!res.ok) {
 		throwHttpError(res, await readApiErrorMessage(res));
 	}
-	return res.json() as Promise<ApiUserProfile>;
+	return res.json();
 }

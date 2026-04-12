@@ -4,6 +4,7 @@
  */
 
 import { mapProfileToPortal } from '$lib/auth/map-profile';
+import type { LoginResponse } from '$lib/auth/auth-flow';
 import * as flow from '$lib/auth/auth-flow';
 import { AUTH_STORAGE_KEY, LEGACY_USER_STORAGE_KEY } from '$lib/auth/constants';
 import type { PortalUser } from '$lib/types/portal-user';
@@ -25,6 +26,7 @@ function normalizeUser(u: PortalUser): PortalUser {
 
 type PersistedSession = {
 	accessToken: string;
+	/** Empty string when backend does not issue refresh tokens */
 	refreshToken: string;
 	user: PortalUser;
 };
@@ -39,10 +41,10 @@ function readStoredSession(): PersistedSession | null {
 		const raw = localStorage.getItem(AUTH_STORAGE_KEY);
 		if (!raw) return null;
 		const parsed = JSON.parse(raw) as PersistedSession;
-		if (!parsed?.accessToken || !parsed?.refreshToken || !parsed?.user?.email) return null;
+		if (!parsed?.accessToken || !parsed?.user?.email) return null;
 		return {
 			accessToken: parsed.accessToken,
-			refreshToken: parsed.refreshToken,
+			refreshToken: parsed.refreshToken ?? '',
 			user: normalizeUser(parsed.user)
 		};
 	} catch {
@@ -69,24 +71,24 @@ function clearLegacyDemoStorage() {
 }
 
 function persist(): void {
-	if (!user || !accessToken || !refreshToken) {
+	if (!user || !accessToken) {
 		writeStoredSession(null);
 		return;
 	}
 	writeStoredSession({
 		accessToken,
-		refreshToken,
+		refreshToken: refreshToken ?? '',
 		user: normalizeUser(user)
 	});
 }
 
 async function refreshAndPersist(): Promise<boolean> {
-	const rt = refreshToken;
+	const rt = refreshToken?.trim();
 	if (!rt) return false;
 	try {
 		const tokens = await flow.postRefresh(rt);
 		accessToken = tokens.access_token;
-		refreshToken = tokens.refresh_token;
+		refreshToken = tokens.refresh_token ?? null;
 		const profile = await flow.getMe(tokens.access_token);
 		const nid = user?.national_id ?? '';
 		user = mapProfileToPortal(profile, { national_id: nid });
@@ -118,7 +120,7 @@ export const authStore = {
 		const s = readStoredSession();
 		if (s) {
 			accessToken = s.accessToken;
-			refreshToken = s.refreshToken;
+			refreshToken = s.refreshToken?.trim() ? s.refreshToken : null;
 			user = s.user;
 		} else {
 			accessToken = null;
@@ -128,11 +130,15 @@ export const authStore = {
 	},
 
 	async signInWithPassword(email: string, password: string): Promise<void> {
-		const tokens = await flow.postLogin(email, password);
-		const profile = await flow.getMe(tokens.access_token);
-		accessToken = tokens.access_token;
-		refreshToken = tokens.refresh_token;
-		user = mapProfileToPortal(profile, { national_id: '' });
+		const data: LoginResponse = await flow.postLogin(email, password);
+		accessToken = data.access_token;
+		refreshToken = data.refresh_token ?? null;
+		if (data.user && typeof data.user === 'object') {
+			user = mapProfileToPortal(data.user, {});
+		} else {
+			const profile = await flow.getMe(data.access_token);
+			user = mapProfileToPortal(profile, { national_id: '' });
+		}
 		persist();
 	},
 
@@ -156,11 +162,16 @@ export const authStore = {
 			country: payload.country,
 			national_id: payload.national_id.trim()
 		});
-		const tokens = await flow.postLogin(payload.email, payload.password);
-		accessToken = tokens.access_token;
-		refreshToken = tokens.refresh_token;
-		const profile = await flow.getMe(tokens.access_token);
-		user = mapProfileToPortal(profile, { national_id: payload.national_id.trim() });
+		const data: LoginResponse = await flow.postLogin(payload.email, payload.password);
+		accessToken = data.access_token;
+		refreshToken = data.refresh_token ?? null;
+		const extra = { national_id: payload.national_id.trim() };
+		if (data.user && typeof data.user === 'object') {
+			user = mapProfileToPortal(data.user, extra);
+		} else {
+			const profile = await flow.getMe(data.access_token);
+			user = mapProfileToPortal(profile, extra);
+		}
 		persist();
 	},
 
@@ -217,7 +228,7 @@ export const authStore = {
 	login(next: PortalUser): void {
 		const n = normalizeUser(next);
 		user = n;
-		if (accessToken && refreshToken) {
+		if (accessToken) {
 			persist();
 		}
 	},

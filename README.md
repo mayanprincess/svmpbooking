@@ -330,9 +330,8 @@ curl "http://localhost:5173/api/availability?checkIn=2025-01-15&checkOut=2025-01
 ## Deployment
 
 This SvelteKit app can be deployed to:
-- **Vercel** (recommended)
+- **Node.js server** (using adapter-node; see `Dockerfile`)
 - **Netlify**
-- **Node.js server** (using adapter-node)
 - **Static hosting** (using adapter-static, without server routes)
 
 For OPERA integration, you'll need a deployment that supports server-side rendering (SSR) or API routes.
