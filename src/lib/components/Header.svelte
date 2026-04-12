@@ -1,7 +1,11 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { locale, setLocale, t, type Locale } from '$lib/i18n';
+	import { authStore } from '$lib/stores/auth.svelte';
 
 	let languageMenuOpen = $state(false);
+
+	onMount(() => authStore.init());
 
 	const languages: { code: Locale; labelKey: 'langNameEn' | 'langNameEs' }[] = [
 		{ code: 'en', labelKey: 'langNameEn' },
@@ -52,6 +56,19 @@
 			</a>
 
 			<div class="header-actions">
+				<!-- User portal link -->
+				{#if authStore.isAuthenticated}
+					<a href="/portal" class="portal-link">
+						<span class="portal-avatar">
+							{authStore.user?.first_name?.charAt(0).toUpperCase()}{authStore.user?.last_name?.charAt(0).toUpperCase()}
+						</span>
+						<span class="portal-label">Mi cuenta</span>
+					</a>
+				{:else}
+					<a href="/auth/login" class="portal-link login">Iniciar sesión</a>
+				{/if}
+
+				<!-- Language Selector -->
 				<div class="language-selector">
 					<button
 						type="button"
@@ -194,6 +211,57 @@
 		gap: 0.75rem;
 	}
 
+	/* ── Portal link ── */
+	.portal-link {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		text-decoration: none;
+		color: var(--color-primary);
+		font-size: 0.875rem;
+		font-weight: 500;
+		padding: 0.4rem 0.875rem;
+		border-radius: 6px;
+		border: 1px solid rgba(24, 52, 83, 0.2);
+		transition: all 0.2s;
+	}
+
+	.portal-link:hover {
+		border-color: var(--color-secondary);
+		color: var(--color-secondary);
+		background: rgba(197, 165, 111, 0.06);
+	}
+
+	.portal-link.login {
+		background: var(--color-primary);
+		color: white;
+		border-color: var(--color-primary);
+	}
+
+	.portal-link.login:hover {
+		background: #1a3d5d;
+		border-color: #1a3d5d;
+		color: white;
+	}
+
+	.portal-avatar {
+		width: 1.6rem;
+		height: 1.6rem;
+		border-radius: 50%;
+		background: var(--color-secondary);
+		color: white;
+		font-size: 0.62rem;
+		font-weight: 700;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.portal-label {
+		font-size: 0.82rem;
+	}
+
+	/* ── Language Selector ── */
 	.language-selector {
 		position: relative;
 	}
@@ -248,14 +316,8 @@
 	}
 
 	@keyframes slideDown {
-		from {
-			opacity: 0;
-			transform: translateY(-8px);
-		}
-		to {
-			opacity: 1;
-			transform: translateY(0);
-		}
+		from { opacity: 0; transform: translateY(-8px); }
+		to   { opacity: 1; transform: translateY(0); }
 	}
 
 	.language-option {
@@ -272,13 +334,8 @@
 		text-align: left;
 	}
 
-	.language-option:hover {
-		background: rgba(197, 165, 111, 0.08);
-	}
-
-	.language-option.active {
-		background: rgba(197, 165, 111, 0.12);
-	}
+	.language-option:hover  { background: rgba(197, 165, 111, 0.08); }
+	.language-option.active { background: rgba(197, 165, 111, 0.12); }
 
 	.lang-code {
 		font-weight: 600;
@@ -294,35 +351,17 @@
 		opacity: 0.8;
 	}
 
-	.check-icon {
-		margin-left: auto;
-	}
+	.check-icon { margin-left: auto; }
 
 	@media (min-width: 768px) {
-		.logo-img {
-			height: 48px;
-		}
-
-		.logo-text {
-			font-size: 1.125rem;
-		}
+		.logo-img  { height: 48px; }
+		.logo-text { font-size: 1.125rem; }
 	}
 
 	@media (min-width: 1024px) {
-		.header-content {
-			height: 80px;
-		}
-
-		.logo {
-			font-size: 1.25rem;
-		}
-
-		.logo-img {
-			height: 52px;
-		}
-
-		.logo-text {
-			font-size: 1.25rem;
-		}
+		.header-content { height: 80px; }
+		.logo           { font-size: 1.25rem; }
+		.logo-img       { height: 52px; }
+		.logo-text      { font-size: 1.25rem; }
 	}
 </style>
