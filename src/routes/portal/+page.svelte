@@ -31,8 +31,10 @@
 
 	const pointsLocale = $derived($locale === 'es' ? 'es-HN' : 'en-US');
 
+	const loginRedirectUrl = `/auth/login?redirect=${encodeURIComponent('/portal')}`;
+
 	async function loadMyReservations() {
-		const token = authStore.accessToken;
+		let token = authStore.accessToken;
 		if (!token) {
 			mineReservations = [];
 			return;
@@ -40,9 +42,24 @@
 		mineLoading = true;
 		mineError = '';
 		try {
-			const r = await fetch('/api/reservations/mine?limit=50', {
-				headers: { Authorization: `Bearer ${token}` }
-			});
+			const fetchMine = (at: string) =>
+				fetch('/api/reservations/mine?limit=50', {
+					headers: { Authorization: `Bearer ${at}` }
+				});
+
+			let r = await fetchMine(token);
+			if (r.status === 401) {
+				const refreshed = await authStore.refreshSession();
+				token = authStore.accessToken;
+				if (refreshed && token) {
+					r = await fetchMine(token);
+				}
+			}
+			if (r.status === 401) {
+				authStore.logout();
+				goto(loginRedirectUrl, { replaceState: true });
+				return;
+			}
 			if (!r.ok) {
 				mineError = t($locale, 'portalReservationsLoadError');
 				return;
