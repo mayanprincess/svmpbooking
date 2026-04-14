@@ -8,8 +8,8 @@ import type {
 	AvailabilityResponse,
 	EnrichedRoomAvailability,
 	EnrichedRate,
-	RoomStay,
-	RoomRate
+	RoomRate,
+	RatePlanConfig
 } from '$lib/types/opera';
 
 /**
@@ -24,7 +24,7 @@ export function enrichAvailability(
 	const roomStays = hotelAvail?.roomStays || [];
 	const enrichedRooms: EnrichedRoomAvailability[] = [];
 
-	console.log('🔧 ENRICHMENT: Starting with', roomStays.length, 'room stays');
+	//console.log('🔧 ENRICHMENT: Starting with', roomStays.length, 'room stays');
 
 	// Extract all room rates from all room stays
 	const allRoomRates: RoomRate[] = [];
@@ -34,7 +34,7 @@ export function enrichAvailability(
 		}
 	}
 
-	console.log('🔧 ENRICHMENT: Found', allRoomRates.length, 'total room rates');
+	//console.log('🔧 ENRICHMENT: Found', allRoomRates.length, 'total room rates');
 
 	// Group room rates by room type
 	const roomTypeMap = new Map<string, RoomRate[]>();
@@ -42,7 +42,7 @@ export function enrichAvailability(
 	for (const roomRate of allRoomRates) {
 		const roomTypeCode = roomRate.roomType;
 		if (!roomTypeCode) {
-			console.warn('⚠️ ENRICHMENT: Room rate missing roomType', roomRate);
+			//console.warn('⚠️ ENRICHMENT: Room rate missing roomType', roomRate);
 			continue;
 		}
 
@@ -52,7 +52,7 @@ export function enrichAvailability(
 		roomTypeMap.get(roomTypeCode)!.push(roomRate);
 	}
 
-	console.log('🔧 ENRICHMENT: Grouped into', roomTypeMap.size, 'unique room types:', Array.from(roomTypeMap.keys()));
+	//console.log('🔧 ENRICHMENT: Grouped into', roomTypeMap.size, 'unique room types:', Array.from(roomTypeMap.keys()));
 
 	// Process each room type
 	for (const [roomTypeCode, rates] of roomTypeMap) {
@@ -60,8 +60,8 @@ export function enrichAvailability(
 
 		// Skip if we don't have configuration for this room type
 		if (!roomConfig) {
-			console.warn(`❌ ENRICHMENT: No configuration found for room type: ${roomTypeCode}`);
-			console.warn(`   Add this to opera-config.ts roomTypes:`, {
+			console.warn(`❌ ENRICHMENT: No configuration found for room type: ${roomTypeCode} → Add to opera-config.ts roomTypes`);
+			/*console.warn(`   Add this to opera-config.ts roomTypes:`, {
 				[roomTypeCode]: {
 					nameEn: 'Room Name Here',
 					nameEs: 'Nombre Aquí',
@@ -73,11 +73,22 @@ export function enrichAvailability(
 					view: 'ocean',
 					sortOrder: 10
 				}
-			});
+			});*/
 			continue;
 		}
 
-		console.log(`✅ ENRICHMENT: Processing room type ${roomTypeCode} with ${rates.length} rates`);
+		// Log when room has rates from OPERA but all get filtered (unknown rate plans, excl. OTA que tienen fallback)
+		const ratePlanCodes = [...new Set(rates.map((r) => r.ratePlanCode))];
+		if (rates.length > 0 && ratePlanCodes.length > 0) {
+			const unknownNonOta = ratePlanCodes.filter(
+				(code) =>
+					!operaStaticConfig.ratePlans[code as keyof typeof operaStaticConfig.ratePlans] &&
+					!code.toUpperCase().includes('OTA')
+			);
+			if (unknownNonOta.length > 0) {
+				console.warn(`⚠️ ENRICHMENT: ${roomTypeCode} - rate plans [${unknownNonOta.join(', ')}] not in config (add to opera-config.ts)`);
+			}
+		}
 
 		// Get view label
 		const viewLabel = operaStaticConfig.views[roomConfig.view] || {
@@ -90,26 +101,28 @@ export function enrichAvailability(
 
 		for (const roomRate of rates) {
 			const ratePlanCode = roomRate.ratePlanCode;
-			const ratePlanConfig =
-				operaStaticConfig.ratePlans[ratePlanCode as keyof typeof operaStaticConfig.ratePlans];
+			let ratePlanConfig: RatePlanConfig | undefined =
+				operaStaticConfig.ratePlans[ratePlanCode as keyof typeof operaStaticConfig.ratePlans] as unknown as RatePlanConfig | undefined;
 
-			// Skip if we don't have configuration for this rate plan
+			// Fallback: si no está en config pero el código contiene "OTA", aceptar con config genérica
+			if (!ratePlanConfig && ratePlanCode.toUpperCase().includes('OTA')) {
+				const code = ratePlanCode.toUpperCase();
+				ratePlanConfig = {
+					package: code.startsWith('AIP') ? 'premium' : code.startsWith('AI') ? 'family' : code.startsWith('BI') ? 'basic' : 'family',
+					labelEn: `OTA Rate (${ratePlanCode})`,
+					labelEs: `Tarifa OTA (${ratePlanCode})`,
+					includes: code.startsWith('AI') ? ['meals', 'drinks', 'activities'] : ['breakfast'],
+					sortOrder: 99
+				};
+			}
+
 			if (!ratePlanConfig) {
-				console.warn(`❌ ENRICHMENT: No configuration found for rate plan: ${ratePlanCode} in room ${roomTypeCode}`);
-				console.warn(`   Add this to opera-config.ts ratePlans:`, {
-					[ratePlanCode]: {
-						package: 'family',
-						labelEn: 'Rate Plan Name',
-						labelEs: 'Nombre del Plan',
-						includes: ['meals', 'drinks', 'activities'],
-						sortOrder: 1
-					}
-				});
+				console.warn(`❌ ENRICHMENT: No configuration found for rate plan: ${ratePlanCode} in room ${roomTypeCode} → Add to opera-config.ts ratePlans`);
 				continue;
 			}
 
-			console.log(`  ✅ Found rate plan ${ratePlanCode} for room ${roomTypeCode}`);
-			console.log(`  💰 Rate total structure:`, roomRate.total);
+			//console.log(`  ✅ Found rate plan ${ratePlanCode} for room ${roomTypeCode}`);
+			//console.log(`  💰 Rate total structure:`, roomRate.total);
 
 			// Get package info
 			const packageType = ratePlanConfig.package;
@@ -121,7 +134,7 @@ export function enrichAvailability(
 			const amountAfterTax = roomRate.total?.amountAfterTax || amountBeforeTax;
 			const currencyCode = roomRate.total?.currencyCode || 'USD';
 			
-			console.log(`  💵 Parsed amounts: before=${amountBeforeTax}, after=${amountAfterTax}, currency=${currencyCode}`);
+			//console.log(`  💵 Parsed amounts: before=${amountBeforeTax}, after=${amountAfterTax}, currency=${currencyCode}`);
 
 			// Get amenities labels
 			const includesLabels = {
@@ -180,12 +193,12 @@ export function enrichAvailability(
 	// Sort rooms by sort order
 	enrichedRooms.sort((a, b) => a.sortOrder - b.sortOrder);
 
-	console.log('🎉 ENRICHMENT: Complete! Returning', enrichedRooms.length, 'enriched rooms');
+	//console.log('🎉 ENRICHMENT: Complete! Returning', enrichedRooms.length, 'enriched rooms');
 	
 	if (enrichedRooms.length === 0 && allRoomRates.length > 0) {
-		console.error('⚠️ ENRICHMENT: Had room rates but 0 enriched rooms!');
-		console.error('   This means room types or rate plans are not in opera-config.ts');
-		console.error('   Check the warnings above for missing configurations');
+		//  console.error('⚠️ ENRICHMENT: Had room rates but 0 enriched rooms!');
+		// console.error('   This means room types or rate plans are not in opera-config.ts');
+		// console.error('   Check the warnings above for missing configurations');
 	}
 
 	return enrichedRooms;

@@ -9,119 +9,167 @@ export const operaStaticConfig = {
 	defaultRatePlanCode: 'AIF-2025',
 
 	// Room Type Mapping (OPERA code => room details)
+	// Validado contra HABITACIONES.docx
 	roomTypes: {
+		// === MAYAN - STUDIOS ===
+		'1DLX': {
+			nameEn: 'One Deluxe Studio',
+			nameEs: 'Estudio Deluxe',
+			bedrooms: 1,
+			maxAdults: 2,
+			maxChildren: 1,
+			beds: ['1 FULL'],
+			location: 'Mayan',
+			view: 'garden',
+			sortOrder: 5
+		},
+		'2DLX': {
+			nameEn: 'Two Deluxe Studio',
+			nameEs: 'Dos Estudios Deluxe',
+			bedrooms: 1,
+			maxAdults: 3,
+			maxChildren: 2,
+			beds: ['2 QUEEN'],
+			location: 'Mayan',
+			view: 'garden',
+			sortOrder: 6
+		},
+
 		// === MAYAN - 1 BEDROOM ===
 		'1BBFG': {
-			nameEn: 'One Bedroom Beach Front',
-			nameEs: 'Una Recámara Frente al Mar',
+			nameEn: 'One Bedroom Beach Front Ground Floor',
+			nameEs: 'Una Recámara Frente al Mar Planta Baja',
 			bedrooms: 1,
-			maxAdults: 4,
-			maxChildren: 4,
-			beds: ['1 KING'],
+			maxAdults: 3,
+			maxChildren: 2,
+			beds: ['1 KING', '1 SOFA'],
 			location: 'Mayan',
 			view: 'ocean',
 			sortOrder: 10
 		},
 		'1BBFS': {
-			nameEn: 'One Bedroom Beach Front + Sofa Bed',
-			nameEs: 'Una Recámara Frente al Mar + Sofá Cama',
+			nameEn: 'One Bedroom Beach Front 2nd Floor',
+			nameEs: 'Una Recámara Frente al Mar Segundo Piso',
 			bedrooms: 1,
-			maxAdults: 4,
-			maxChildren: 4,
+			maxAdults: 3,
+			maxChildren: 2,
 			beds: ['1 KING', '1 SOFA'],
 			location: 'Mayan',
 			view: 'ocean',
 			sortOrder: 11
 		},
-		'1BGS': {
-			nameEn: 'One Bedroom Tropical Garden + Sofa Bed',
-			nameEs: 'Una Recámara Jardín Tropical + Sofá Cama',
+		'1BT': {
+			nameEn: 'One Bedroom Tower Villa',
+			nameEs: 'Una Recámara Tower Villa',
 			bedrooms: 1,
-			maxAdults: 4,
-			maxChildren: 4,
-			beds: ['1 KING', '1 SOFA'],
+			maxAdults: 3,
+			maxChildren: 2,
+			beds: ['1 KING'],
 			location: 'Mayan',
 			view: 'garden',
 			sortOrder: 20
 		},
-		'1BPTG': {
-			nameEn: 'One Bedroom Tower Villa',
-			nameEs: 'Una Recámara Tower Villa',
+		'1BGS': {
+			nameEn: 'One Bedroom Garden 2nd Floor Villa',
+			nameEs: 'Una Recámara Jardín Segundo Piso Villa',
 			bedrooms: 1,
-			maxAdults: 4,
-			maxChildren: 4,
-			beds: ['1 KING'],
-			location: 'Mayan',
-			view: 'garden',
-			sortOrder: 30
-		},
-		'1BPG': {
-			nameEn: 'One Bedroom Tower Villa + Sofa Bed',
-			nameEs: 'Una Recámara Tower Villa + Sofá Cama',
-			bedrooms: 1,
-			maxAdults: 4,
-			maxChildren: 4,
+			maxAdults: 3,
+			maxChildren: 2,
 			beds: ['1 KING', '1 SOFA'],
-			location: 'Mayan',
-			view: 'garden',
-			sortOrder: 31
-		},
-		'1BT': {
-			nameEn: 'One Bedroom Tropical Garden',
-			nameEs: 'Una Recámara Jardín Tropical',
-			bedrooms: 1,
-			maxAdults: 4,
-			maxChildren: 4,
-			beds: ['1 QUEEN'],
 			location: 'Mayan',
 			view: 'garden',
 			sortOrder: 21
 		},
+		'1BPTG': {
+			nameEn: 'One Bedroom Pool View Trundle Ground Villa',
+			nameEs: 'Una Recámara Vista Piscina Trundle Planta Baja',
+			bedrooms: 1,
+			maxAdults: 4,
+			maxChildren: 2,
+			beds: ['1 KING'],
+			location: 'Mayan',
+			view: 'pool',
+			sortOrder: 30
+		},
+		'1BPG': {
+			nameEn: 'One Bedroom Pool View Ground Floor Villa',
+			nameEs: 'Una Recámara Vista Piscina Planta Baja',
+			bedrooms: 1,
+			maxAdults: 3,
+			maxChildren: 2,
+			beds: ['1 KING', '1 SOFA'],
+			location: 'Mayan',
+			view: 'pool',
+			sortOrder: 31
+		},
 
 		// === MAYAN - 2 BEDROOM ===
 		'2BMS': {
-			nameEn: 'Two Bedroom Master Suite',
-			nameEs: 'Dos Recámaras Master Suite',
+			nameEn: 'Two Bedroom Master Suite Ground Floor',
+			nameEs: 'Dos Recámaras Master Suite Planta Baja',
 			bedrooms: 2,
-			maxAdults: 6,
-			maxChildren: 4,
+			maxAdults: 5,
+			maxChildren: 2,
 			beds: ['1 KING', '1 QUEEN', '1 SOFA'],
 			location: 'Mayan',
-			view: 'ocean',
+			view: 'garden',
 			sortOrder: 40
 		},
 		'2BMSS': {
-			nameEn: 'Two Bedroom Master Suite Superior',
-			nameEs: 'Dos Recámaras Master Suite Superior',
+			nameEn: 'Two Bedroom Master Suite 2nd Floor',
+			nameEs: 'Dos Recámaras Master Suite Segundo Piso',
 			bedrooms: 2,
-			maxAdults: 6,
-			maxChildren: 4,
+			maxAdults: 5,
+			maxChildren: 2,
 			beds: ['1 KING', '1 QUEEN', '1 SOFA'],
 			location: 'Mayan',
-			view: 'ocean',
+			view: 'garden',
 			sortOrder: 41
 		},
-		'2BT': {
-			nameEn: 'Two Bedroom Tropical Garden',
-			nameEs: 'Dos Recámaras Jardín Tropical',
-			bedrooms: 2,
-			maxAdults: 4,
-			maxChildren: 4,
-			beds: ['2 QUEEN'],
-			location: 'Mayan',
-			view: 'garden',
-			sortOrder: 50
-		},
 		'2BJS': {
-			nameEn: 'Two Bedroom Junior Suite',
-			nameEs: 'Dos Recámaras Junior Suite',
+			nameEn: 'Two Bedroom Tower Junior Suite',
+			nameEs: 'Dos Recámaras Tower Junior Suite',
 			bedrooms: 2,
-			maxAdults: 6,
-			maxChildren: 4,
+			maxAdults: 5,
+			maxChildren: 2,
 			beds: ['1 KING', '1 QUEEN', '1 SOFA'],
 			location: 'Mayan',
 			view: 'ocean',
 			sortOrder: 45
+		},
+		'2BT': {
+			nameEn: 'Two Bedroom Tower Villa',
+			nameEs: 'Dos Recámaras Tower Villa',
+			bedrooms: 2,
+			maxAdults: 5,
+			maxChildren: 2,
+			beds: ['1 KING', '1 QUEEN', '1 SOFA'],
+			location: 'Mayan',
+			view: 'garden',
+			sortOrder: 50
+		},
+		'2BBFM': {
+			nameEn: 'Two Bedroom Beach Front Master Villa',
+			nameEs: 'Dos Recámaras Frente al Mar Master Villa',
+			bedrooms: 2,
+			maxAdults: 5,
+			maxChildren: 2,
+			beds: ['2 FULL', '1 SOFA'],
+			location: 'Mayan',
+			view: 'ocean',
+			sortOrder: 42
+		},
+		// SF - Pendiente confirmar si OPERA lo incluirá (ver DOCX)
+		SF: {
+			nameEn: 'Two Bedroom Family Suite',
+			nameEs: 'Dos Recámaras Family Suite',
+			bedrooms: 2,
+			maxAdults: 4,
+			maxChildren: 2,
+			beds: ['1 KING', '1 FULL', '1 SOFA'],
+			location: 'Mayan',
+			view: 'garden',
+			sortOrder: 55
 		}
 	},
 
